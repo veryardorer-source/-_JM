@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore'
 
 // 의뢰 유형별 단계 정의
 const STAGES_MAP = {
-  '시공의뢰':  ['디자인', '견적', '작업도면', '시공', '마감'],
+  '시공의뢰':  ['디자인', '작업도면', '견적', '시공', '마감'],
   '디자인의뢰': ['평면도', '디자인', '작업도면'],  // 작업도면은 optional
 }
 
@@ -90,7 +90,7 @@ export default function Projects() {
       if (form.projectType !== (existing.projectType || '시공의뢰')) {
         // 유형 변경 → stages 초기화
         if (form.projectType === '시공의뢰') {
-          updates.stages = { '디자인': false, '견적': false, '작업도면': false, '시공': false, '마감': false }
+          updates.stages = { '디자인': false, '작업도면': false, '견적': false, '시공': false, '마감': false }
         } else {
           updates.stages = form.includeWorkingDrawing
             ? { '평면도': false, '디자인': false, '작업도면': false }
@@ -339,7 +339,7 @@ export default function Projects() {
               )}
 
               {form.projectType === '시공의뢰' && (
-                <div className="text-[11px] text-gray-400 -mt-1">단계: 디자인 → 견적 → 작업도면 → 시공 → 마감</div>
+                <div className="text-[11px] text-gray-400 -mt-1">단계: 디자인 → 작업도면 → 견적 → 시공 → 마감</div>
               )}
 
               <div>

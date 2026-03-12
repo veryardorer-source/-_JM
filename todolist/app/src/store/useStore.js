@@ -10,7 +10,7 @@ const INITIAL_PROJECTS = [
     dueDate: '2026-04-30',
     status: '진행중',
     projectType: '시공의뢰',
-    stages: { '디자인': true, '견적': true, '작업도면': false, '시공': false, '마감': false },
+    stages: { '디자인': true, '작업도면': false, '견적': true, '시공': false, '마감': false },
     memo: '거실 확장 포함. 주방 아일랜드 추가 요청',
   },
   {
@@ -164,7 +164,7 @@ export function useStore() {
   const addProject = useCallback((project) => {
     const type = project.projectType || '시공의뢰'
     const defaultStages = type === '시공의뢰'
-      ? { '디자인': false, '견적': false, '작업도면': false, '시공': false, '마감': false }
+      ? { '디자인': false, '작업도면': false, '견적': false, '시공': false, '마감': false }
       : project.includeWorkingDrawing
         ? { '평면도': false, '디자인': false, '작업도면': false }
         : { '평면도': false, '디자인': false }
