@@ -1,47 +1,32 @@
+import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import { calcSurfaceCost } from '../utils/surfaceCost.js'
 import { generatePDF } from '../utils/pdfGenerator.js'
 
 export default function Summary() {
   const { project, rooms } = useStore()
+  const [collapsed, setCollapsed] = useState({}) // roomId → bool
 
-  const materialMap = {}   // 일반 자재
-  const filmRows = []      // 필름 면별 집계
   let grandTotal = 0
 
-  rooms.forEach(room => {
-    room.surfaces.forEach(sf => {
-      const result = calcSurfaceCost(room, sf)
-      if (!result) return
-
-      result.items.forEach(item => {
-        if (item.isFilm) {
-          // 필름은 별도 집계
-          filmRows.push({
-            roomName: room.name,
-            surfaceLabel: item.surfaceLabel,
-            sections: item.sections || [],
-            totalM: item.qty,
-            pricePerM: item.unitPrice,
-            cost: item.cost,
-          })
-        } else {
-          const key = `${item.name}||${item.unit}`
-          if (!materialMap[key]) {
-            materialMap[key] = { name: item.name, unit: item.unit, qty: 0, cost: 0 }
-          }
-          materialMap[key].qty  += item.qty  || 0
-          materialMap[key].cost += item.cost || 0
-        }
+  // 실별 계산
+  const roomData = rooms.map(room => {
+    let roomTotal = 0
+    const surfaceData = room.surfaces
+      .filter(sf => sf.enabled && sf.finishType && sf.finishType !== 'none')
+      .map(sf => {
+        const result = calcSurfaceCost(room, sf)
+        if (!result || result.items.length === 0) return null
+        roomTotal += result.total
+        return { sf, items: result.items, total: result.total }
       })
-      grandTotal += result.total
-    })
-  })
+      .filter(Boolean)
 
-  const materialList = Object.values(materialMap).sort((a, b) => b.cost - a.cost)
-  const filmTotalM   = Math.round(filmRows.reduce((s, r) => s + r.totalM, 0) * 10) / 10
-  const filmTotalCost = filmRows.reduce((s, r) => s + r.cost, 0)
-  const hasFilm = filmRows.length > 0
+    grandTotal += roomTotal
+    return { room, surfaceData, roomTotal }
+  }).filter(r => r.surfaceData.length > 0)
+
+  const toggle = (id) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }))
 
   return (
     <div style={s.card}>
@@ -50,87 +35,53 @@ export default function Summary() {
         <button onClick={() => generatePDF(project, rooms)} style={s.pdfBtn}>PDF 출력</button>
       </div>
 
-      {materialList.length === 0 && !hasFilm ? (
+      {roomData.length === 0 ? (
         <p style={s.empty}>실을 추가하고 마감재를 선택하면 견적이 계산됩니다.</p>
       ) : (
         <>
-          {/* ── 일반 자재 테이블 ── */}
-          {materialList.length > 0 && (
-            <table style={s.table}>
-              <thead>
-                <tr style={s.thead}>
-                  <th style={s.th}>자재명</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>수량</th>
-                  <th style={{ ...s.th, textAlign: 'center' }}>단위</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>금액(원)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {materialList.map(m => (
-                  <tr key={`${m.name}||${m.unit}`} style={s.tr}>
-                    <td style={s.td}>{m.name}</td>
-                    <td style={{ ...s.td, textAlign: 'right', fontWeight: 600, color: '#1e4078' }}>
-                      {fmtQty(m.qty, m.unit)}
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'center', color: '#888' }}>{m.unit}</td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>{Math.round(m.cost).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {roomData.map(({ room, surfaceData, roomTotal }) => (
+            <div key={room.id} style={s.roomBlock}>
+              {/* 실 헤더 */}
+              <div style={s.roomHeader} onClick={() => toggle(room.id)}>
+                <span style={s.collapseIcon}>{collapsed[room.id] ? '▶' : '▼'}</span>
+                <span style={s.roomName}>{room.name}</span>
+                <span style={s.roomTotal}>{Math.round(roomTotal).toLocaleString()}원</span>
+              </div>
 
-          {/* ── 인테리어필름 전용 섹션 ── */}
-          {hasFilm && (
-            <div style={s.filmSection}>
-              <div style={s.filmTitle}>인테리어필름</div>
-              <table style={s.table}>
-                <thead>
-                  <tr style={s.thead}>
-                    <th style={s.th}>실 / 면</th>
-                    <th style={{ ...s.th, textAlign: 'right' }}>구간수</th>
-                    <th style={{ ...s.th, textAlign: 'right' }}>소요(m)</th>
-                    <th style={{ ...s.th, textAlign: 'right' }}>금액(원)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filmRows.map((row, i) => (
-                    <tr key={i} style={s.tr}>
-                      <td style={s.td}>
-                        <span style={s.roomBadge}>{row.roomName}</span>
-                        {row.surfaceLabel}
-                      </td>
-                      <td style={{ ...s.td, textAlign: 'right', color: '#888' }}>
-                        {row.sections.length}개
-                      </td>
-                      <td style={{ ...s.td, textAlign: 'right', fontWeight: 600, color: '#1e4078' }}>
-                        {row.totalM.toFixed(1)}m
-                      </td>
-                      <td style={{ ...s.td, textAlign: 'right' }}>
-                        {Math.round(row.cost).toLocaleString()}
-                      </td>
-                    </tr>
+              {/* 실 내용 */}
+              {!collapsed[room.id] && (
+                <div style={s.roomBody}>
+                  {surfaceData.map(({ sf, items, total }) => (
+                    <div key={sf.id} style={s.surfaceBlock}>
+                      {/* 면 헤더 */}
+                      <div style={s.surfaceHeader}>
+                        <span style={s.surfaceName}>{sf.label}</span>
+                        <span style={s.surfaceTotal}>{Math.round(total).toLocaleString()}원</span>
+                      </div>
+                      {/* 자재 목록 */}
+                      <table style={s.table}>
+                        <tbody>
+                          {items.map((item, i) => (
+                            <ItemRow key={i} item={item} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ))}
-                </tbody>
-                <tfoot>
-                  <tr style={s.filmFoot}>
-                    <td style={s.td} colSpan={2}>필름 전체 합계</td>
-                    <td style={{ ...s.td, textAlign: 'right', fontWeight: 800, fontSize: 14, color: '#1e4078' }}>
-                      {filmTotalM.toFixed(1)}m
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'right', fontWeight: 700 }}>
-                      {Math.round(filmTotalCost).toLocaleString()}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                  {/* 실 소계 */}
+                  <div style={s.roomSubtotal}>
+                    <span>{room.name} 소계</span>
+                    <span>{Math.round(roomTotal).toLocaleString()}원</span>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          ))}
 
-          {/* ── 총 합계 ── */}
-          <div style={s.total}>
-            <span>총 합계 (자재비)</span>
-            <span style={s.totalNum}>{Math.round(grandTotal).toLocaleString()} 원</span>
+          {/* 전체 합계 */}
+          <div style={s.grandTotal}>
+            <span>전체 합계 (자재비)</span>
+            <span style={s.grandTotalNum}>{Math.round(grandTotal).toLocaleString()} 원</span>
           </div>
         </>
       )}
@@ -138,8 +89,48 @@ export default function Summary() {
   )
 }
 
+function ItemRow({ item }) {
+  // 필름은 면별 합계 + 구간 상세 표시
+  if (item.isFilm) {
+    return (
+      <>
+        <tr style={s.itemRowFilm}>
+          <td style={s.tdName}>
+            <span style={s.filmBadge}>필름</span>
+            {item.sections?.length > 0 ? `${item.sections.length}개 구간` : '구간 미입력'}
+          </td>
+          <td style={{ ...s.tdQty, color: '#1e4078', fontWeight: 700 }}>
+            {item.qty > 0 ? `${item.qty.toFixed(1)}m` : '-'}
+          </td>
+          <td style={s.tdCost}>{item.cost > 0 ? Math.round(item.cost).toLocaleString() : '-'}</td>
+        </tr>
+        {item.sections?.map((sec, i) => (
+          <tr key={i} style={s.filmSecRow}>
+            <td style={{ ...s.tdName, paddingLeft: 20, color: '#888', fontSize: 10 }}>
+              └ {i + 1}. 폭{sec.widthMm}mm{sec.patternRepeatMm > 0 ? ` / 패턴${sec.patternRepeatMm}mm` : ''}
+              <span style={{ color: '#e06000', marginLeft: 6 }}>로스{sec.lossM}m</span>
+            </td>
+            <td style={{ ...s.tdQty, color: '#555', fontSize: 10 }}>{sec.sectionM}m</td>
+            <td style={{ ...s.tdCost, fontSize: 10, color: '#888' }}>
+              {item.unitPrice > 0 ? Math.round(sec.sectionM * item.unitPrice).toLocaleString() : '-'}
+            </td>
+          </tr>
+        ))}
+      </>
+    )
+  }
+
+  return (
+    <tr style={s.itemRow}>
+      <td style={s.tdName}>{item.name}{item.spec ? <span style={s.spec}> {item.spec}</span> : ''}</td>
+      <td style={s.tdQty}>{fmtQty(item.qty, item.unit)} {item.unit}</td>
+      <td style={s.tdCost}>{item.cost > 0 ? Math.round(item.cost).toLocaleString() : '-'}</td>
+    </tr>
+  )
+}
+
 function fmtQty(qty, unit) {
-  if (!qty || qty === 0) return '-'
+  if (!qty && qty !== 0) return '-'
   if (unit === 'm')  return (Math.round(qty * 10) / 10).toFixed(1)
   if (unit === '㎡') return (Math.round(qty * 100) / 100).toFixed(2)
   return Math.round(qty)
@@ -151,17 +142,34 @@ const s = {
   title:   { fontSize: 14, fontWeight: 700, color: '#1e4078' },
   pdfBtn:  { fontSize: 12, padding: '6px 14px', background: '#1e4078', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 600 },
   empty:   { color: '#aaa', fontSize: 13, textAlign: 'center', padding: 24 },
-  table:   { width: '100%', borderCollapse: 'collapse', marginBottom: 8 },
-  thead:   { background: '#f0f4fa' },
-  th:      { padding: '6px 8px', fontSize: 11, fontWeight: 700, color: '#1e4078', textAlign: 'left', borderBottom: '1px solid #dde4f0' },
-  tr:      { borderBottom: '1px solid #f5f5f5' },
-  td:      { padding: '5px 8px', fontSize: 12, color: '#333' },
-  // 필름 전용
-  filmSection: { marginTop: 10, marginBottom: 4, border: '1px solid #c8d8f0', borderRadius: 6, overflow: 'hidden' },
-  filmTitle:   { background: '#1e4078', color: '#fff', fontSize: 12, fontWeight: 700, padding: '5px 10px' },
-  filmFoot:    { background: '#dde8f8', borderTop: '2px solid #1e4078' },
-  roomBadge:   { fontSize: 10, background: '#eef2f8', color: '#1e4078', borderRadius: 3, padding: '1px 5px', marginRight: 5 },
-  // 합계
-  total:    { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: '#eef2f8', borderRadius: 6, fontWeight: 700, fontSize: 14, color: '#1e4078', marginTop: 8 },
-  totalNum: { fontSize: 18 },
+
+  // 실 블록
+  roomBlock:   { marginBottom: 8, border: '1px solid #dde4f0', borderRadius: 6, overflow: 'hidden' },
+  roomHeader:  { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', background: '#1e4078', cursor: 'pointer', userSelect: 'none' },
+  collapseIcon:{ fontSize: 10, color: 'rgba(255,255,255,0.7)' },
+  roomName:    { flex: 1, fontSize: 13, fontWeight: 700, color: '#fff' },
+  roomTotal:   { fontSize: 13, fontWeight: 700, color: '#a8d0ff' },
+  roomBody:    { padding: '6px 8px', background: '#fafbfd' },
+
+  // 면 블록
+  surfaceBlock:  { marginBottom: 6 },
+  surfaceHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px', background: '#eef2f8', borderRadius: '4px 4px 0 0', borderLeft: '3px solid #4a7fc1' },
+  surfaceName:   { fontSize: 12, fontWeight: 700, color: '#1e4078' },
+  surfaceTotal:  { fontSize: 12, fontWeight: 600, color: '#1e4078' },
+
+  // 자재 테이블
+  table:  { width: '100%', borderCollapse: 'collapse', background: '#fff' },
+  itemRow:    { borderBottom: '1px solid #f0f2f5' },
+  itemRowFilm:{ borderBottom: '1px solid #f0f2f5', background: '#fffaf0' },
+  filmSecRow: { borderBottom: '1px dashed #f0f2f5', background: '#fffdf5' },
+  tdName: { padding: '4px 6px', fontSize: 11, color: '#444', width: '50%' },
+  tdQty:  { padding: '4px 6px', fontSize: 11, textAlign: 'right', color: '#555', width: '22%' },
+  tdCost: { padding: '4px 6px', fontSize: 11, textAlign: 'right', color: '#333', width: '28%' },
+  spec:   { color: '#999', fontSize: 10 },
+  filmBadge: { fontSize: 9, background: '#1e4078', color: '#fff', borderRadius: 3, padding: '1px 4px', marginRight: 4 },
+
+  // 소계/합계
+  roomSubtotal: { display: 'flex', justifyContent: 'space-between', padding: '5px 8px', background: '#dde8f8', borderRadius: '0 0 4px 4px', fontSize: 12, fontWeight: 700, color: '#1e4078', marginTop: 2 },
+  grandTotal:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#1e4078', borderRadius: 6, fontWeight: 700, fontSize: 13, color: '#fff', marginTop: 10 },
+  grandTotalNum:{ fontSize: 18, color: '#a8d0ff' },
 }
