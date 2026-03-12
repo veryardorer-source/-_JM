@@ -150,10 +150,10 @@ export function useStore() {
     const handleFocus = async () => {
       const data = await fetchFromSupabase()
       if (!data) return
-      if (data.projects)  { globalProjects  = data.projects;  saveToStorage(STORAGE_KEYS.PROJECTS,  data.projects) }
-      if (data.tasks)     { globalTasks      = data.tasks;     saveToStorage(STORAGE_KEYS.TASKS,     data.tasks) }
-      if (data.payments)  { globalPayments   = data.payments;  saveToStorage(STORAGE_KEYS.PAYMENTS,  data.payments) }
-      if (data.recurring) { globalRecurring  = data.recurring; saveToStorage(STORAGE_KEYS.RECURRING, data.recurring) }
+      if (data.projects?.length)  { globalProjects  = data.projects;  saveToStorage(STORAGE_KEYS.PROJECTS,  data.projects) }
+      if (data.tasks?.length)     { globalTasks      = data.tasks;     saveToStorage(STORAGE_KEYS.TASKS,     data.tasks) }
+      if (data.payments?.length)  { globalPayments   = data.payments;  saveToStorage(STORAGE_KEYS.PAYMENTS,  data.payments) }
+      if (data.recurring?.length) { globalRecurring  = data.recurring; saveToStorage(STORAGE_KEYS.RECURRING, data.recurring) }
       notify()
     }
     window.addEventListener('focus', handleFocus)
