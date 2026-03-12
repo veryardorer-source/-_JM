@@ -10,7 +10,7 @@ const INITIAL_PROJECTS = [
     dueDate: '2026-04-30',
     status: '진행중',
     projectType: '시공의뢰',
-    stages: { '디자인': true, '견적': true, '작업도면': false, '시공': false, '마감': false },
+    stages: { '디자인': true, '작업도면': false, '견적': true, '시공': false, '마감': false },
     memo: '거실 확장 포함. 주방 아일랜드 추가 요청',
   },
   {
@@ -173,10 +173,10 @@ export function useStore() {
     const handleFocus = async () => {
       const data = await fetchFromSupabase()
       if (!data) return
-      if (data.projects)  { globalProjects  = data.projects;  saveToStorage(STORAGE_KEYS.PROJECTS,  data.projects) }
-      if (data.tasks)     { globalTasks      = data.tasks;     saveToStorage(STORAGE_KEYS.TASKS,     data.tasks) }
-      if (data.payments)  { globalPayments   = data.payments;  saveToStorage(STORAGE_KEYS.PAYMENTS,  data.payments) }
-      if (data.recurring) { globalRecurring  = data.recurring; saveToStorage(STORAGE_KEYS.RECURRING, data.recurring) }
+      if (data.projects?.length)  { globalProjects  = data.projects;  saveToStorage(STORAGE_KEYS.PROJECTS,  data.projects) }
+      if (data.tasks?.length)     { globalTasks      = data.tasks;     saveToStorage(STORAGE_KEYS.TASKS,     data.tasks) }
+      if (data.payments?.length)  { globalPayments   = data.payments;  saveToStorage(STORAGE_KEYS.PAYMENTS,  data.payments) }
+      if (data.recurring?.length) { globalRecurring  = data.recurring; saveToStorage(STORAGE_KEYS.RECURRING, data.recurring) }
       notify()
     }
     window.addEventListener('focus', handleFocus)
@@ -187,7 +187,7 @@ export function useStore() {
   const addProject = useCallback((project) => {
     const type = project.projectType || '시공의뢰'
     const defaultStages = type === '시공의뢰'
-      ? { '디자인': false, '견적': false, '작업도면': false, '시공': false, '마감': false }
+      ? { '디자인': false, '작업도면': false, '견적': false, '시공': false, '마감': false }
       : project.includeWorkingDrawing
         ? { '평면도': false, '디자인': false, '작업도면': false }
         : { '평면도': false, '디자인': false }
