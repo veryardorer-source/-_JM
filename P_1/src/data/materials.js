@@ -119,6 +119,16 @@ export const WOOD_PANEL = [
   { id: 'wp_lauan_18',   name: '라왕집성목 18T',     areaPerSheet: 2.184, pricePerSheet: 61000 },
 ]
 
+// 흡음재 (단위: ㎡)
+export const INSULATION = [
+  { id: 'gw_24k_50',  name: '글라스울 24K 50T',  pricePerSqm: 3500 },
+  { id: 'gw_32k_50',  name: '글라스울 32K 50T',  pricePerSqm: 5000 },
+  { id: 'gw_32k_75',  name: '글라스울 32K 75T',  pricePerSqm: 7000 },
+  { id: 'gw_32k_100', name: '글라스울 32K 100T', pricePerSqm: 9000 },
+  { id: 'rw_50',      name: '락울 50T',           pricePerSqm: 8500 },
+  { id: 'rw_75',      name: '락울 75T',           pricePerSqm: 12000 },
+]
+
 // 텍스 천장재 (단위: BOX)
 export const TEX = [
   { id: 'tex_300_600', name: '텍스 300×600', tileW: 300, tileH: 600, areaPerTile: 0.18, tilesPerBox: 20, areaPerBox: 3.6, pricePerBox: 0 },
@@ -138,6 +148,15 @@ export const ETC_WOOD = [
   { id: 'ew_design_fire',  name: '디자인월(방염) 790×325×9T',      areaPerBox: 1.542, pricePerBox: 37500 },
   { id: 'ew_design_normal',name: '디자인월(비방염) 790×325×9T',    areaPerBox: 1.542, pricePerBox: 37500 },
 ]
+
+export const LIGHTING_TYPES = [
+  '매입등 3"', '매입등 4"', '매입등 6"',
+  '직부등', '라인조명 T5', '라인조명 T8',
+  '면조명 (패널)', '펜던트', '벽등', '기타',
+]
+
+export const WRAPPING_WIDTHS = [30, 40, 50, 60, 80, 90, 100, 120, 150, 200]
+export const WRAPPING_BOARD_LENGTH_M = 2.44  // 랩핑평판 1EA 길이
 
 // ─────────────────────────────────────────────
 // 마감재 타입별 자동 레이어 규칙

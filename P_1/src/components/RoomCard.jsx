@@ -2,9 +2,13 @@ import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import SurfaceRow from './SurfaceRow.jsx'
 import { calcSurfaceCost } from '../utils/surfaceCost.js'
+import LightingSection from './LightingSection.jsx'
+import MoldingSection from './MoldingSection.jsx'
+
+const DOOR_TYPES = ['방문', '양개문', '현관문', '미서기문', '기타']
 
 export default function RoomCard({ room }) {
-  const { updateRoom, deleteRoom, duplicateRoom } = useStore()
+  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor } = useStore()
   const [collapsed, setCollapsed] = useState(false)
 
   const roomTotal = room.surfaces.reduce((sum, sf) => {
@@ -53,6 +57,51 @@ export default function RoomCard({ room }) {
           {room.surfaces.map(sf => (
             <SurfaceRow key={sf.id} room={room} sf={sf} />
           ))}
+
+          {/* 도어 섹션 */}
+          <div style={styles.doorSection}>
+            <div style={styles.doorHeader}>
+              <span style={styles.doorTitle}>도어</span>
+              <button onClick={() => addDoor(room.id)} style={styles.addDoorBtn}>+ 도어 추가</button>
+            </div>
+            {(room.doors || []).length > 0 && (
+              <div style={styles.doorTable}>
+                <div style={styles.doorTableHead}>
+                  <span style={{ width: 90 }}>종류</span>
+                  <span style={{ width: 70 }}>폭(m)</span>
+                  <span style={{ width: 70 }}>높이(m)</span>
+                  <span style={{ width: 50 }}>수량</span>
+                  <span style={{ flex: 1 }}>단가(원/짝)</span>
+                  <span style={{ width: 30 }}></span>
+                </div>
+                {(room.doors || []).map(door => (
+                  <div key={door.id} style={styles.doorRow}>
+                    <select value={door.type} onChange={e => updateDoor(room.id, door.id, { type: e.target.value })} style={{ ...styles.doorInput, width: 90 }}>
+                      {DOOR_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                    <input type="number" min="0" step="0.01" value={door.widthM}
+                      onChange={e => updateDoor(room.id, door.id, { widthM: Number(e.target.value) })}
+                      style={{ ...styles.doorInput, width: 70 }} />
+                    <input type="number" min="0" step="0.01" value={door.heightM}
+                      onChange={e => updateDoor(room.id, door.id, { heightM: Number(e.target.value) })}
+                      style={{ ...styles.doorInput, width: 70 }} />
+                    <input type="number" min="1" value={door.qty}
+                      onChange={e => updateDoor(room.id, door.id, { qty: Number(e.target.value) })}
+                      style={{ ...styles.doorInput, width: 50 }} />
+                    <input type="number" min="0" value={door.unitPrice || ''}
+                      placeholder="단가 입력"
+                      onChange={e => updateDoor(room.id, door.id, { unitPrice: Number(e.target.value) })}
+                      style={{ ...styles.doorInput, flex: 1 }} />
+                    <button onClick={() => deleteDoor(room.id, door.id)} style={styles.btnRed}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <LightingSection room={room} />
+          <MoldingSection room={room} />
+
           <div style={styles.subtotal}>
             <span>소계</span>
             <span style={styles.subtotalNum}>{roomTotal.toLocaleString()}원</span>
@@ -140,4 +189,24 @@ const styles = {
     fontSize: 13, fontWeight: 700, color: '#1e4078',
   },
   subtotalNum: { fontSize: 14 },
+
+  doorSection: { marginTop: 10, borderTop: '1px dashed #dde4f0', paddingTop: 8 },
+  doorHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  doorTitle: { fontSize: 12, fontWeight: 700, color: '#555' },
+  addDoorBtn: {
+    fontSize: 11, padding: '3px 10px',
+    background: '#f0f4fa', border: '1px solid #c8d4e8',
+    borderRadius: 4, cursor: 'pointer', color: '#1e4078', fontWeight: 600,
+  },
+  doorTable: { display: 'flex', flexDirection: 'column', gap: 4 },
+  doorTableHead: {
+    display: 'flex', gap: 6, alignItems: 'center',
+    fontSize: 10, color: '#aaa', fontWeight: 600,
+    padding: '0 4px 4px',
+  },
+  doorRow: { display: 'flex', gap: 6, alignItems: 'center' },
+  doorInput: {
+    border: '1px solid #d0d7e3', borderRadius: 4,
+    padding: '4px 5px', fontSize: 12, textAlign: 'center',
+  },
 }

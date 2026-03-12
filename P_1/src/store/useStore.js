@@ -5,15 +5,15 @@ const defaultSurface = (label, direction) => ({
   id: `${direction}_${Date.now()}_${Math.random()}`,
   label,
   direction, // floor | ceiling | wallN | wallS | wallE | wallW
-  finishType: 'none',      // 마감재 타입 키
-  finishMaterialId: '',    // 선택된 마감재 ID
-  seokgoType: 'sg_normal', // 석고보드 종류
-  mdfId: 'mdf_9',          // MDF 종류
-  filmPricePerM: 5000,         // 필름 m당 단가
-  // 필름 구간 목록 [{id, label, widthMm, patternRepeatMm, heightOverrideMm}]
-  // heightOverrideMm=0 이면 벽 높이 사용
-  filmSections: [],
-  openings: [],                // 개구부 [{id, type, width, height}]
+  finishType: 'none',        // 마감재 타입 키
+  finishMaterialId: '',      // 선택된 마감재 ID
+  seokgoType: 'sg_normal',   // 석고보드 종류
+  mdfId: 'mdf_9',            // MDF 종류
+  filmPricePerM: 5000,       // 필름 m당 기본 단가
+  filmSections: [],          // 필름 구간 목록
+  wallType: 'normal',        // 'normal' | 'partition' (칸막이벽)
+  hapanId: 'hp_normal_11',   // 합판 종류 (칸막이벽용)
+  insulationType: 'none',    // 흡음재 종류
   enabled: true,
 })
 
@@ -25,6 +25,9 @@ const createRoom = (name) => {
     widthM: 0,
     depthM: 0,
     heightM: 2.4,
+    doors: [],
+    lightings: [],
+    moldings: [],
     surfaces: [
       defaultSurface('바닥', 'floor'),
       defaultSurface('천장', 'ceiling'),
@@ -98,6 +101,125 @@ export const useStore = create(
                 sf.id !== surfaceId ? sf : { ...sf, ...fields }
               ),
             }
+      ),
+    })),
+
+  // 도어 추가/수정/삭제
+  addDoor: (roomId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          doors: [...(r.doors || []), {
+            id: `door_${Date.now()}_${Math.random()}`,
+            type: '방문',
+            widthM: 0.9,
+            heightM: 2.1,
+            qty: 1,
+            unitPrice: 0,
+          }],
+        }
+      ),
+    })),
+
+  updateDoor: (roomId, doorId, fields) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          doors: r.doors.map((d) => d.id !== doorId ? d : { ...d, ...fields }),
+        }
+      ),
+    })),
+
+  deleteDoor: (roomId, doorId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          doors: r.doors.filter((d) => d.id !== doorId),
+        }
+      ),
+    })),
+
+  // 조명
+  addLighting: (roomId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          lightings: [...(r.lightings || []), {
+            id: `light_${Date.now()}_${Math.random()}`,
+            type: '매입등 3"',
+            spec: '',
+            qty: 1,
+            lengthM: 0,
+          }],
+        }
+      ),
+    })),
+
+  updateLighting: (roomId, lightingId, fields) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          lightings: (r.lightings || []).map((l) =>
+            l.id !== lightingId ? l : { ...l, ...fields }
+          ),
+        }
+      ),
+    })),
+
+  deleteLighting: (roomId, lightingId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          lightings: (r.lightings || []).filter((l) => l.id !== lightingId),
+        }
+      ),
+    })),
+
+  // 랩핑평판 (몰딩)
+  addMolding: (roomId, moldType) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          moldings: [...(r.moldings || []), {
+            id: `mold_${Date.now()}_${Math.random()}`,
+            moldType,
+            widthMm: moldType === '걸레받이' ? 80 : moldType === '천정몰딩' ? 30 : moldType === '창틀몰딩' ? 150 : 60,
+            autoCalc: ['걸레받이', '천정몰딩'].includes(moldType),
+            customLengthM: 0,
+            itemWidthM: 0,
+            itemHeightM: 0,
+            qty: 1,
+          }],
+        }
+      ),
+    })),
+
+  updateMolding: (roomId, moldingId, fields) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          moldings: (r.moldings || []).map((m) =>
+            m.id !== moldingId ? m : { ...m, ...fields }
+          ),
+        }
+      ),
+    })),
+
+  deleteMolding: (roomId, moldingId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          moldings: (r.moldings || []).filter((m) => m.id !== moldingId),
+        }
       ),
     })),
 

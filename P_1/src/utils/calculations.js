@@ -124,7 +124,9 @@ export function calcLuba(areaSqm, areaPerPack, pricePerPack) {
 const FILM_ROLL_WIDTH_MM = 1200
 const FILM_MARGIN_MM = 100 // 위아래 여유
 
-export function calcFilmSections(sections, wallHeightMm, pricePerM) {
+// sections: [{id, label, widthMm, patternRepeatMm, heightOverrideMm, filmName, pricePerM}]
+// defaultPricePerM: 구간에 단가가 없을 때 사용
+export function calcFilmSections(sections, wallHeightMm, defaultPricePerM) {
   if (!sections || sections.length === 0) return { sectionResults: [], totalM: 0, cost: 0 }
 
   const sectionResults = sections.map((sec) => {
@@ -141,21 +143,27 @@ export function calcFilmSections(sections, wallHeightMm, pricePerM) {
     const usedWidthMm = stripsNeeded * FILM_ROLL_WIDTH_MM
     const lossWidthMm = usedWidthMm - widthMm
     const lossM = Math.round((lossWidthMm * stripLengthMm) / 1000 / 100) / 10
+    // 구간 단가: 구간별 단가 우선, 없으면 기본 단가
+    const pricePerM = sec.pricePerM > 0 ? sec.pricePerM : (defaultPricePerM || 0)
+    const sectionCost = sectionM * pricePerM
 
     return {
       id: sec.id,
       label: sec.label || `구간`,
+      filmName: sec.filmName || '',
       widthMm,
       heightMm,
       patternRepeatMm: sec.patternRepeatMm || 0,
       stripsNeeded,
       sectionM,
       lossM,
+      pricePerM,
+      sectionCost,
     }
   })
 
   const totalM = Math.round(sectionResults.reduce((s, r) => s + r.sectionM, 0) * 10) / 10
-  const cost = totalM * pricePerM
+  const cost = sectionResults.reduce((s, r) => s + r.sectionCost, 0)
   return { sectionResults, totalM, cost }
 }
 

@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { FINISH_TYPES, SEOKGO, MDF, WALLPAPER, TILE, FLOORING, TEX } from '../data/materials.js'
+import { FINISH_TYPES, SEOKGO, MDF, HAPAN, WALLPAPER, TILE, FLOORING, TEX, INSULATION } from '../data/materials.js'
 import { calcSurfaceCost, getSurfaceDimensions } from '../utils/surfaceCost.js'
 import { calcFilmSections } from '../utils/calculations.js'
 
 export default function SurfaceRow({ room, sf }) {
-  const { updateSurface, addOpening, deleteOpening, addFilmSection, updateFilmSection, deleteFilmSection } = useStore()
-  const [showOpenings, setShowOpenings] = useState(false)
-  const [newOpening, setNewOpening] = useState({ type: '문', width: 0.9, height: 2.1 })
+  const { updateSurface, addFilmSection, updateFilmSection, deleteFilmSection } = useStore()
 
   const upd = (fields) => updateSurface(room.id, sf.id, fields)
   const result = calcSurfaceCost(room, sf)
@@ -15,6 +13,7 @@ export default function SurfaceRow({ room, sf }) {
 
   const isCeiling = sf.direction === 'ceiling'
   const isFloor = sf.direction === 'floor'
+  const isWall = !isFloor && !isCeiling
 
   return (
     <div style={styles.row}>
@@ -104,41 +103,32 @@ export default function SurfaceRow({ room, sf }) {
             </select>
           </label>
         )}
+        {/* 칸막이벽 옵션 (벽면만) */}
+        {isWall && sf.finishType !== 'none' && (
+          <label style={styles.inlineLabel}>벽 구조
+            <select value={sf.wallType || 'normal'} onChange={e => upd({ wallType: e.target.value })} style={styles.selectSm}>
+              <option value="normal">일반벽</option>
+              <option value="partition">칸막이벽 (합판 포함)</option>
+            </select>
+          </label>
+        )}
+        {isWall && sf.wallType === 'partition' && (
+          <label style={styles.inlineLabel}>합판 종류
+            <select value={sf.hapanId || 'hp_normal_11'} onChange={e => upd({ hapanId: e.target.value })} style={styles.selectSm}>
+              {HAPAN.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
+          </label>
+        )}
+        {/* 흡음재 옵션 (벽면만) */}
+        {isWall && sf.finishType !== 'none' && (
+          <label style={styles.inlineLabel}>흡음재
+            <select value={sf.insulationType || 'none'} onChange={e => upd({ insulationType: e.target.value })} style={styles.selectSm}>
+              <option value="none">없음</option>
+              {INSULATION.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+          </label>
+        )}
       </div>
-
-      {/* 개구부 */}
-      {!isFloor && !isCeiling && (
-        <div style={styles.openingCell}>
-          <button onClick={() => setShowOpenings(!showOpenings)} style={styles.btnSmall}>
-            개구부 {sf.openings.length > 0 ? `(${sf.openings.length})` : ''}
-          </button>
-          {showOpenings && (
-            <div style={styles.openingPanel}>
-              {sf.openings.map(op => (
-                <div key={op.id} style={styles.openingItem}>
-                  <span>{op.type} {op.width}×{op.height}m</span>
-                  <button onClick={() => deleteOpening(room.id, sf.id, op.id)} style={styles.btnDel}>✕</button>
-                </div>
-              ))}
-              <div style={styles.openingAdd}>
-                <select value={newOpening.type} onChange={e => setNewOpening(p => ({ ...p, type: e.target.value }))} style={styles.selectSm}>
-                  <option>문</option><option>창문</option><option>기타</option>
-                </select>
-                <input type="number" step="0.01" value={newOpening.width}
-                  onChange={e => setNewOpening(p => ({ ...p, width: Number(e.target.value) }))}
-                  style={styles.inputTiny} placeholder="폭(m)" />
-                <span>×</span>
-                <input type="number" step="0.01" value={newOpening.height}
-                  onChange={e => setNewOpening(p => ({ ...p, height: Number(e.target.value) }))}
-                  style={styles.inputTiny} placeholder="높이(m)" />
-                <button onClick={() => {
-                  addOpening(room.id, sf.id, { ...newOpening })
-                }} style={styles.btnAdd}>추가</button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* 금액 */}
       <div style={styles.costCell}>
@@ -172,6 +162,8 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
         widthMm: w,
         patternRepeatMm: globalPattern,
         heightOverrideMm: 0,
+        filmName: '',
+        pricePerM: 0,
       })
     })
     setBulkInput('')
@@ -179,13 +171,16 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
 
   const totalLossM = Math.round(sectionResults.reduce((s, r) => s + r.lossM, 0) * 10) / 10
   const wallTotalMm = sections.reduce((s, sec) => s + (sec.widthMm || 0), 0)
+  const wallWidthMm = (sf.direction === 'wallE' || sf.direction === 'wallW')
+    ? room.depthM * 1000 : room.widthM * 1000
+  const wallDiffMm = wallWidthMm > 0 ? wallTotalMm - wallWidthMm : null
 
   return (
     <div style={fs.wrap}>
       {/* 공통 설정 */}
       <div style={fs.topRow}>
         <span style={fs.rollBadge}>롤폭 1200mm 고정</span>
-        <label style={fs.inlineLabel}>단가(원/m)
+        <label style={fs.inlineLabel}>기본 단가(원/m)
           <input type="number" min="0" value={sf.filmPricePerM || ''}
             placeholder="0"
             onChange={e => upd({ filmPricePerM: Number(e.target.value) })}
@@ -196,6 +191,7 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
             {MDF.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </label>
+        <span style={fs.defaultHint}>※ 구간별 단가 미입력 시 기본 단가 적용</span>
       </div>
 
       {/* 빠른 입력 */}
@@ -215,9 +211,19 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
         </label>
         <button onClick={handleBulkGenerate} style={fs.btnGenerate}>구간 생성</button>
         {sections.length > 0 && (
-          <span style={fs.wallSum}>
-            입력 합계: {(wallTotalMm / 1000).toFixed(1)}m
-            {room.widthM > 0 && ` / 벽 ${sf.direction === 'wallE' || sf.direction === 'wallW' ? room.depthM : room.widthM}m`}
+          <span style={{
+            ...fs.wallSum,
+            color: wallDiffMm === null ? '#888'
+              : wallDiffMm === 0 ? '#1a7a3a'
+              : '#c44000',
+            fontWeight: wallDiffMm !== null && wallDiffMm !== 0 ? 700 : 400,
+          }}>
+            입력 합계: {(wallTotalMm / 1000).toFixed(3)}m
+            {wallWidthMm > 0 && ` / 벽 ${(wallWidthMm / 1000).toFixed(3)}m`}
+            {wallDiffMm !== null && wallDiffMm !== 0 && (
+              <span> ({wallDiffMm > 0 ? '+' : ''}{(wallDiffMm / 1000).toFixed(3)}m)</span>
+            )}
+            {wallDiffMm === 0 && ' ✓'}
           </span>
         )}
       </div>
@@ -229,10 +235,13 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
             <thead>
               <tr style={fs.thead}>
                 <th style={fs.th}>#</th>
+                <th style={{...fs.th, minWidth: 90}}>필름명</th>
                 <th style={fs.th}>폭(mm)</th>
                 <th style={fs.th}>패턴간격(mm)</th>
                 <th style={fs.th}>높이(mm)<br/><span style={{fontWeight:400,fontSize:9}}>0=벽높이</span></th>
+                <th style={fs.th}>단가(원/m)<br/><span style={{fontWeight:400,fontSize:9}}>0=기본단가</span></th>
                 <th style={fs.th}>소요(m)</th>
+                <th style={fs.th}>금액</th>
                 <th style={fs.th}>로스(m)</th>
                 <th style={fs.th}></th>
               </tr>
@@ -243,6 +252,12 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
                 return (
                   <tr key={sec.id} style={i % 2 === 0 ? fs.trEven : fs.trOdd}>
                     <td style={{ ...fs.td, color: '#aaa', fontSize: 11 }}>{i + 1}</td>
+                    <td style={fs.td}>
+                      <input value={sec.filmName || ''}
+                        onChange={e => updateFilmSection(room.id, sf.id, sec.id, { filmName: e.target.value })}
+                        style={{...fs.inputNum, width: 88, textAlign: 'left'}}
+                        placeholder="예) 화이트무광" />
+                    </td>
                     <td style={fs.td}>
                       <input type="number" min="0" value={sec.widthMm}
                         onChange={e => updateFilmSection(room.id, sf.id, sec.id, { widthMm: Number(e.target.value) })}
@@ -258,8 +273,17 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
                         onChange={e => updateFilmSection(room.id, sf.id, sec.id, { heightOverrideMm: Number(e.target.value) })}
                         style={fs.inputNum} />
                     </td>
+                    <td style={fs.td}>
+                      <input type="number" min="0" value={sec.pricePerM || ''}
+                        placeholder={sf.filmPricePerM || '0'}
+                        onChange={e => updateFilmSection(room.id, sf.id, sec.id, { pricePerM: Number(e.target.value) })}
+                        style={fs.inputNum} />
+                    </td>
                     <td style={{ ...fs.td, textAlign: 'right', fontWeight: 600, color: '#1e4078' }}>
                       {res ? res.sectionM : '-'}m
+                    </td>
+                    <td style={{ ...fs.td, textAlign: 'right', fontSize: 11, color: '#333' }}>
+                      {res && res.sectionCost > 0 ? Math.round(res.sectionCost).toLocaleString() : '-'}
                     </td>
                     <td style={{ ...fs.td, textAlign: 'right', color: '#e06000', fontSize: 11 }}>
                       {res ? res.lossM : '-'}m
@@ -275,13 +299,17 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
           <div style={fs.totalRow}>
             <span style={{ color: '#e06000', fontSize: 11 }}>총 로스: {totalLossM}m</span>
             <span>합계 {totalM}m</span>
-            <span style={fs.totalCost}>{(totalM * (sf.filmPricePerM || 0)).toLocaleString()}원</span>
+            <span style={fs.totalCost}>
+              {sectionResults.reduce((s, r) => s + r.sectionCost, 0) > 0
+                ? Math.round(sectionResults.reduce((s, r) => s + r.sectionCost, 0)).toLocaleString() + '원'
+                : '-'}
+            </span>
           </div>
         </div>
       )}
 
       <button
-        onClick={() => addFilmSection(room.id, sf.id, { label: `구간${sections.length + 1}`, widthMm: 600, patternRepeatMm: 0, heightOverrideMm: 0 })}
+        onClick={() => addFilmSection(room.id, sf.id, { label: `구간${sections.length + 1}`, widthMm: 600, patternRepeatMm: 0, heightOverrideMm: 0, filmName: '', pricePerM: 0 })}
         style={fs.btnAdd}>
         + 구간 1개 추가
       </button>
@@ -301,6 +329,7 @@ const fs = {
     fontSize: 11, background: '#dde8f8', color: '#1e4078',
     padding: '3px 8px', borderRadius: 4, fontWeight: 600,
   },
+  defaultHint: { fontSize: 10, color: '#aaa', whiteSpace: 'nowrap', alignSelf: 'flex-end' },
   inlineLabel: { display: 'flex', flexDirection: 'column', fontSize: 10, color: '#888', gap: 2 },
   inputSm: { border: '1px solid #d0d7e3', borderRadius: 4, padding: '3px 5px', fontSize: 11, width: 80 },
   selectSm: { border: '1px solid #d0d7e3', borderRadius: 4, padding: '3px 5px', fontSize: 11 },
@@ -334,7 +363,7 @@ const fs = {
 const styles = {
   row: {
     display: 'grid',
-    gridTemplateColumns: '110px 140px 1fr auto 120px',
+    gridTemplateColumns: '110px 140px 1fr 120px',
     gap: 8,
     alignItems: 'start',
     padding: '8px 10px',
