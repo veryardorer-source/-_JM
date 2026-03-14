@@ -36,13 +36,13 @@ export default function SurfaceRow({ room, sf }) {
         {/* 추가 벽: 치수 직접 입력 */}
         {isExtra ? (
           <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 3 }}>
-            <input type="number" min="0" step="0.01" value={sf.extraWidthM || ''}
-              placeholder="폭(m)" onChange={e => upd({ extraWidthM: Number(e.target.value) })}
-              style={{ width: 55, border: '1px solid #d0d7e3', borderRadius: 3, padding: '2px 4px', fontSize: 11 }} />
+            <input type="number" min="0" step="1" value={sf.extraWidthM ? Math.round(sf.extraWidthM * 1000) : ''}
+              placeholder="폭(mm)" onChange={e => upd({ extraWidthM: Number(e.target.value) / 1000 })}
+              style={{ width: 60, border: '1px solid #d0d7e3', borderRadius: 3, padding: '2px 4px', fontSize: 11 }} />
             <span style={{ fontSize: 10, color: '#888' }}>×</span>
-            <input type="number" min="0" step="0.01" value={sf.extraHeightM || ''}
-              placeholder={`H${room.heightM}`} onChange={e => upd({ extraHeightM: Number(e.target.value) })}
-              style={{ width: 55, border: '1px solid #d0d7e3', borderRadius: 3, padding: '2px 4px', fontSize: 11 }} />
+            <input type="number" min="0" step="1" value={sf.extraHeightM ? Math.round(sf.extraHeightM * 1000) : ''}
+              placeholder={`H${Math.round(room.heightM * 1000)}`} onChange={e => upd({ extraHeightM: Number(e.target.value) / 1000 })}
+              style={{ width: 60, border: '1px solid #d0d7e3', borderRadius: 3, padding: '2px 4px', fontSize: 11 }} />
             <span style={styles.areaBadge}>{areaSqm.toFixed(2)}㎡</span>
           </div>
         ) : (
@@ -240,10 +240,10 @@ function FilmSectionEditor({ room, sf, addFilmSection, updateFilmSection, delete
               : '#c44000',
             fontWeight: wallDiffMm !== null && wallDiffMm !== 0 ? 700 : 400,
           }}>
-            입력 합계: {(wallTotalMm / 1000).toFixed(3)}m
-            {wallWidthMm > 0 && ` / 벽 ${(wallWidthMm / 1000).toFixed(3)}m`}
+            입력 합계: {wallTotalMm}mm
+            {wallWidthMm > 0 && ` / 벽 ${wallWidthMm}mm`}
             {wallDiffMm !== null && wallDiffMm !== 0 && (
-              <span> ({wallDiffMm > 0 ? '+' : ''}{(wallDiffMm / 1000).toFixed(3)}m)</span>
+              <span> ({wallDiffMm > 0 ? '+' : ''}{wallDiffMm}mm)</span>
             )}
             {wallDiffMm === 0 && ' ✓'}
           </span>

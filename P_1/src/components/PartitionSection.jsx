@@ -17,8 +17,8 @@ export default function PartitionSection({ room }) {
         <div>
           <div style={s.thead}>
             <span style={{ width: 90 }}>이름</span>
-            <span style={{ width: 68 }}>길이(m)</span>
-            <span style={{ width: 68 }}>높이(m)</span>
+            <span style={{ width: 68 }}>길이(mm)</span>
+            <span style={{ width: 68 }}>높이(mm)</span>
             <span style={{ flex: 1 }}>합판 종류</span>
             <span style={{ width: 110, textAlign: 'center' }}>개소 / 장수</span>
             <span style={{ width: 80, textAlign: 'right' }}>금액</span>
@@ -53,17 +53,17 @@ function PartitionRow({ room, partition, onUpdate, onDelete }) {
         style={{ ...s.inp, width: 88, fontWeight: 600 }}
       />
       <input
-        type="number" min="0" step="0.01"
-        value={partition.lengthM || ''}
+        type="number" min="0" step="1"
+        value={partition.lengthM ? Math.round(partition.lengthM * 1000) : ''}
         placeholder="0"
-        onChange={e => onUpdate({ lengthM: Number(e.target.value) })}
+        onChange={e => onUpdate({ lengthM: Number(e.target.value) / 1000 })}
         style={{ ...s.inp, width: 66, textAlign: 'center' }}
       />
       <input
-        type="number" min="0" step="0.01"
-        value={partition.heightM || ''}
-        placeholder={String(room.heightM)}
-        onChange={e => onUpdate({ heightM: Number(e.target.value) })}
+        type="number" min="0" step="1"
+        value={partition.heightM ? Math.round(partition.heightM * 1000) : ''}
+        placeholder={String(Math.round(room.heightM * 1000))}
+        onChange={e => onUpdate({ heightM: Number(e.target.value) / 1000 })}
         style={{ ...s.inp, width: 66, textAlign: 'center' }}
       />
       <select

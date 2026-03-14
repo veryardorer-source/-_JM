@@ -1,6 +1,6 @@
 import { calcSurfaceCost } from './surfaceCost.js'
 
-export function generatePDF(project, rooms) {
+export function generatePDF(project, rooms, grandAggregate, grandTotal) {
   const lines = []
 
   // ── 스타일 ──────────────────────────────────────
@@ -46,7 +46,7 @@ export function generatePDF(project, rooms) {
     </tr>
   </table>`)
 
-  let grandTotal = 0
+  let calcTotal = 0
 
   rooms.forEach((room, ri) => {
     const rows = []
@@ -63,7 +63,7 @@ export function generatePDF(project, rooms) {
     })
 
     if (rows.length === 0) return
-    grandTotal += roomTotal
+    calcTotal += roomTotal
 
     const dimStr = (room.widthM > 0 && room.depthM > 0)
       ? ` (${room.widthM}×${room.depthM}×H${room.heightM}m)`
@@ -103,7 +103,39 @@ export function generatePDF(project, rooms) {
     </table>`)
   })
 
-  lines.push(`<div class="grand">합 계 (재료비): ${Math.round(grandTotal).toLocaleString()} 원</div>`)
+  lines.push(`<div class="grand">합 계 (재료비): ${Math.round(grandTotal ?? calcTotal).toLocaleString()} 원</div>`)
+
+  // ── 전체 자재 합계표 ─────────────────────────────
+  if (grandAggregate && grandAggregate.length > 0) {
+    lines.push(`<div class="section-title">전체 자재 합계</div>`)
+    lines.push(`<table class="mat">
+      <thead><tr>
+        <th style="width:50%">자재명</th>
+        <th style="width:20%" class="r">수량</th>
+        <th style="width:10%" class="c">단위</th>
+        <th style="width:20%" class="r">참고금액(원)</th>
+      </tr></thead>
+      <tbody>`)
+    grandAggregate.forEach(item => {
+      const qty = item.unit === 'm'
+        ? (Math.round(item.qty * 10) / 10).toFixed(1)
+        : item.unit === '㎡'
+        ? (Math.round(item.qty * 100) / 100).toFixed(2)
+        : Math.round(item.qty)
+      lines.push(`<tr>
+        <td>${item.name}</td>
+        <td class="r">${qty}</td>
+        <td class="c">${item.unit}</td>
+        <td class="r">${item.cost > 0 ? Math.round(item.cost).toLocaleString() : '-'}</td>
+      </tr>`)
+    })
+    lines.push(`</tbody>
+      <tfoot><tr class="subtot">
+        <td colspan="3" style="text-align:right; font-weight:bold">합 계</td>
+        <td class="r">${Math.round(grandTotal).toLocaleString()}</td>
+      </tr></tfoot>
+    </table>`)
+  }
 
   // ── 새 창에서 출력 ──────────────────────────────
   const win = window.open('', '_blank', 'width=800,height=900')

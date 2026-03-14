@@ -77,22 +77,22 @@ export default function MoldingSection({ room, sf }) {
 
                 {/* 자동: 면 길이 표시 */}
                 {isAuto && (
-                  <span style={s.autoLength}>{lengthM > 0 ? `${lengthM.toFixed(2)}m` : '치수 필요'}</span>
+                  <span style={s.autoLength}>{lengthM > 0 ? `${Math.round(lengthM * 1000)}mm` : '치수 필요'}</span>
                 )}
 
                 {/* 수동: 폭×높이×수량 입력 */}
                 {!isAuto && (
                   <>
-                    <label style={s.inlineLabel}>폭(m)
-                      <input type="number" min="0" step="0.01" value={m.itemWidthM || ''}
+                    <label style={s.inlineLabel}>폭(mm)
+                      <input type="number" min="0" step="1" value={m.itemWidthM ? Math.round(m.itemWidthM * 1000) : ''}
                         placeholder="0"
-                        onChange={e => updateMolding(room.id, sf.id, m.id, { itemWidthM: Number(e.target.value) })}
+                        onChange={e => updateMolding(room.id, sf.id, m.id, { itemWidthM: Number(e.target.value) / 1000 })}
                         style={s.input} />
                     </label>
-                    <label style={s.inlineLabel}>높이(m)
-                      <input type="number" min="0" step="0.01" value={m.itemHeightM || ''}
+                    <label style={s.inlineLabel}>높이(mm)
+                      <input type="number" min="0" step="1" value={m.itemHeightM ? Math.round(m.itemHeightM * 1000) : ''}
                         placeholder="0"
-                        onChange={e => updateMolding(room.id, sf.id, m.id, { itemHeightM: Number(e.target.value) })}
+                        onChange={e => updateMolding(room.id, sf.id, m.id, { itemHeightM: Number(e.target.value) / 1000 })}
                         style={s.input} />
                     </label>
                     <label style={s.inlineLabel}>수량

@@ -34,13 +34,13 @@ export default function RoomCard({ room }) {
           style={styles.nameInput}
         />
         <div style={styles.dims}>
-          <DimField label="가로(m)" value={room.widthM} onChange={v => upd({ widthM: v })} />
+          <DimField label="가로(mm)" value={room.widthM} onChange={v => upd({ widthM: v })} />
           <span style={styles.x}>×</span>
-          <DimField label="세로(m)" value={room.depthM} onChange={v => upd({ depthM: v })} />
+          <DimField label="세로(mm)" value={room.depthM} onChange={v => upd({ depthM: v })} />
           <span style={styles.x}>× 마감H</span>
-          <DimField label="마감높이(m)" value={room.heightM} onChange={v => upd({ heightM: v })} />
+          <DimField label="마감H(mm)" value={room.heightM} onChange={v => upd({ heightM: v })} />
           <span style={styles.x}>/ 슬라브H</span>
-          <DimField label="슬라브높이(m)" value={room.slabHeightM || 0} onChange={v => upd({ slabHeightM: v })} />
+          <DimField label="슬라브H(mm)" value={room.slabHeightM || 0} onChange={v => upd({ slabHeightM: v })} />
         </div>
         <div style={styles.actions}>
           <span style={styles.total}>{roomTotal.toLocaleString()}원</span>
@@ -76,8 +76,8 @@ export default function RoomCard({ room }) {
               <div style={styles.doorTable}>
                 <div style={styles.doorTableHead}>
                   <span style={{ width: 90 }}>종류</span>
-                  <span style={{ width: 70 }}>폭(m)</span>
-                  <span style={{ width: 70 }}>높이(m)</span>
+                  <span style={{ width: 70 }}>폭(mm)</span>
+                  <span style={{ width: 70 }}>높이(mm)</span>
                   <span style={{ width: 50 }}>수량</span>
                   <span style={{ flex: 1 }}>단가(원/짝)</span>
                   <span style={{ width: 30 }}></span>
@@ -87,11 +87,11 @@ export default function RoomCard({ room }) {
                     <select value={door.type} onChange={e => updateDoor(room.id, door.id, { type: e.target.value })} style={{ ...styles.doorInput, width: 90 }}>
                       {DOOR_TYPES.map(t => <option key={t}>{t}</option>)}
                     </select>
-                    <input type="number" min="0" step="0.01" value={door.widthM}
-                      onChange={e => updateDoor(room.id, door.id, { widthM: Number(e.target.value) })}
+                    <input type="number" min="0" step="1" value={door.widthM ? Math.round(door.widthM * 1000) : ''}
+                      onChange={e => updateDoor(room.id, door.id, { widthM: Number(e.target.value) / 1000 })}
                       style={{ ...styles.doorInput, width: 70 }} />
-                    <input type="number" min="0" step="0.01" value={door.heightM}
-                      onChange={e => updateDoor(room.id, door.id, { heightM: Number(e.target.value) })}
+                    <input type="number" min="0" step="1" value={door.heightM ? Math.round(door.heightM * 1000) : ''}
+                      onChange={e => updateDoor(room.id, door.id, { heightM: Number(e.target.value) / 1000 })}
                       style={{ ...styles.doorInput, width: 70 }} />
                     <input type="number" min="1" value={door.qty}
                       onChange={e => updateDoor(room.id, door.id, { qty: Number(e.target.value) })}
@@ -130,10 +130,10 @@ function DimField({ label, value, onChange }) {
       <input
         type="number"
         min="0"
-        step="0.01"
-        value={value || ''}
+        step="1"
+        value={value ? Math.round(value * 1000) : ''}
         placeholder="0"
-        onChange={e => onChange(Number(e.target.value))}
+        onChange={e => onChange(Number(e.target.value) / 1000)}
         style={styles.dimInput}
       />
     </label>

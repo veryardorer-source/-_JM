@@ -471,7 +471,7 @@ export const useStore = create(
         ],
         lightings: [
           { id: 'sample_light_1', type: '매입등 3"', spec: 'LED 7W', qty: 6, lengthM: 0, totalLengthMm: 0 },
-          { id: 'sample_light_2', type: '라인조명 T5', spec: '', qty: 2, lengthM: 0, totalLengthMm: 2400 },
+          { id: 'sample_light_2', type: '라인조명 T5', spec: '', qty: 1, lengthM: 2.4 },
         ],
         moldings: [],
         surfaces: [

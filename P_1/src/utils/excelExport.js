@@ -170,7 +170,7 @@ function makeSummarySheet(project, matTotal, detailSheetName) {
   setCell(ws, 6, r, ce(FILL_EMPTY))   // 경비 입력
   setCell(ws, 7, r, cf(`E${r}+F${r}+G${r}`, FILL_FORMULA))
   setCell(ws, 8, r, ce())
-  const순공사비Row = r
+  const 순공사비Row = r
   r += 4
 
   // 직접공사비 계
@@ -180,7 +180,7 @@ function makeSummarySheet(project, matTotal, detailSheetName) {
   setCell(ws, 5, r, cf(`F${순공사비Row}`, FILL_SUBTOT))
   setCell(ws, 6, r, cf(`G${순공사비Row}`, FILL_SUBTOT))
   setCell(ws, 7, r, cf(`H${순공사비Row}`, FILL_SUBTOT))
-  const직접Row = r
+  const 직접Row = r
   r++
 
   // 간접비 항목들
@@ -212,14 +212,14 @@ function makeSummarySheet(project, matTotal, detailSheetName) {
   setCell(ws, 0, r, cs('간 접 공 사 비 계', FILL_SUBTOT, AC, true))
   const indirectSumFormula = `SUM(${indirectRows.filter((_,i)=>i<4).map(ir=>`H${ir}`).join(',')})`
   setCell(ws, 7, r, cf(indirectSumFormula, FILL_SUBTOT))
-  const간접Row = r
+  const 간접Row = r
   r++
 
   // 총공사비
   for (let i = 0; i < 9; i++) setCell(ws, i, r, cs('', {}, AC))
   setCell(ws, 0, r, cs('총  공  사  비', {}, AC, true))
   setCell(ws, 7, r, cf(`FLOOR(H${직접Row}+H${간접Row},1000)`, FILL_FORMULA))
-  const총공사비Row = r
+  const 총공사비Row = r
   r++
 
   // 부가세
@@ -227,7 +227,7 @@ function makeSummarySheet(project, matTotal, detailSheetName) {
   setCell(ws, 0, r, cs('부  가  세', {}, AC))
   setCell(ws, 1, r, cs('10%', {}, AC))
   setCell(ws, 7, r, cf(`ROUND(H${총공사비Row}*0.1,-3)`, FILL_FORMULA))
-  const부가세Row = r
+  const 부가세Row = r
   r++
 
   // 합계
@@ -533,40 +533,38 @@ function makeDetailSheet(roomDataList, globalItems) {
 // 메인 내보내기
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 export function exportToExcel(project, roomDataList, grandAggregate, grandTotal, globalItems) {
-  // 공종별 재료비 집계
-  const tradeMap = {}
-  TRADE_ORDER.forEach(t => { tradeMap[t] = 0 })
-
-  roomDataList.forEach(rd => {
-    rd.surfaceData.forEach(({ items }) =>
-      items.forEach(i => { const t = getTrade(i.name); tradeMap[t] = (tradeMap[t]||0) + i.cost })
-    )
-    rd.doorItems.forEach(d => { tradeMap['창호작업'] = (tradeMap['창호작업']||0) + d.cost })
-  })
-  ;(globalItems||[]).forEach(gi => {
-    if (!gi.enabled || !gi.name) return
-    const t = gi.trade || '기타'
-    const mat = (gi.matUnitPrice||0)*(gi.qty||0)
-    tradeMap[t] = (tradeMap[t]||0) + mat
-  })
-
-  const wb = XLSX.utils.book_new()
-
-  // 시트3 먼저 생성 (수식 참조용)
-  const { ws: detailWs } = makeDetailSheet(roomDataList, globalItems)
-  const summaryWs = makeSummarySheet(project, grandTotal)
-  const tradeWs   = makeTradeSheet(tradeMap)
-
-  XLSX.utils.book_append_sheet(wb, summaryWs, '내역서(요약)')
-  XLSX.utils.book_append_sheet(wb, tradeWs,   '공종별집계')
-  XLSX.utils.book_append_sheet(wb, detailWs,  '내역서(상세)')
-
   try {
+    // 공종별 재료비 집계
+    const tradeMap = {}
+    TRADE_ORDER.forEach(t => { tradeMap[t] = 0 })
+
+    roomDataList.forEach(rd => {
+      rd.surfaceData.forEach(({ items }) =>
+        items.forEach(i => { const t = getTrade(i.name); tradeMap[t] = (tradeMap[t]||0) + i.cost })
+      )
+      rd.doorItems.forEach(d => { tradeMap['창호작업'] = (tradeMap['창호작업']||0) + d.cost })
+    })
+    ;(globalItems||[]).forEach(gi => {
+      if (!gi.enabled || !gi.name) return
+      const t = gi.trade || '기타'
+      const mat = (gi.matUnitPrice||0)*(gi.qty||0)
+      tradeMap[t] = (tradeMap[t]||0) + mat
+    })
+
+    const wb = XLSX.utils.book_new()
+
+    const { ws: detailWs } = makeDetailSheet(roomDataList, globalItems)
+    const summaryWs = makeSummarySheet(project, grandTotal)
+    const tradeWs   = makeTradeSheet(tradeMap)
+
+    XLSX.utils.book_append_sheet(wb, summaryWs, '내역서(요약)')
+    XLSX.utils.book_append_sheet(wb, tradeWs,   '공종별집계')
+    XLSX.utils.book_append_sheet(wb, detailWs,  '내역서(상세)')
+
     const siteName = project.siteName || '견적'
     const dateStr  = new Date().toISOString().slice(0,10).replace(/-/g,'')
     const filename  = `${siteName}_견적서_${dateStr}.xlsx`
 
-    // binary string → ArrayBuffer 변환 (xlsx 0.18.x 호환)
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' })
     const buf   = new ArrayBuffer(wbout.length)
     const view  = new Uint8Array(buf)

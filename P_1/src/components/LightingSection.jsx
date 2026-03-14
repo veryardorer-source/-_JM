@@ -52,13 +52,13 @@ export default function LightingSection({ room }) {
                 {isLine ? (
                   /* T5/T7: 전체 길이 입력 → 사이즈별 수량 표시 */
                   <div style={s.lineWrap}>
-                    <label style={s.inlineLabel}>전체길이(m)
+                    <label style={s.inlineLabel}>전체길이(mm)
                       <input
-                        type="number" min="0" step="0.3"
-                        value={l.lengthM || ''}
+                        type="number" min="0" step="100"
+                        value={l.lengthM ? Math.round(l.lengthM * 1000) : ''}
                         placeholder="0"
-                        onChange={e => updateLighting(room.id, l.id, { lengthM: Number(e.target.value) })}
-                        style={{ ...s.input, width: 70 }}
+                        onChange={e => updateLighting(room.id, l.id, { lengthM: Number(e.target.value) / 1000 })}
+                        style={{ ...s.input, width: 75 }}
                       />
                     </label>
                     {breakdown && Object.keys(breakdown).length > 0 && (

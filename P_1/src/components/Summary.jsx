@@ -78,10 +78,11 @@ export default function Summary() {
     const doorItems = calcDoorItems(room.doors)
 
     // 조명 항목
+    const LINE_TYPES = ['라인조명 T5', '라인조명 T7']
     const lightingItems = (room.lightings || [])
-      .filter(l => l.qty > 0)
+      .filter(l => LINE_TYPES.includes(l.type) ? (l.lengthM || 0) > 0 : l.qty > 0)
       .map(l => {
-        const totalLengthMm = (l.totalLengthMm > 0 ? l.totalLengthMm : (l.lengthM || 0) * 1000)
+        const totalLengthMm = (l.lengthM || 0) * 1000
         return {
           name: l.type,
           spec: l.spec || '',
@@ -142,7 +143,7 @@ export default function Summary() {
           <button
             onClick={() => exportToExcel(project, roomData, grandAggregate, grandTotal, globalItems)}
             style={s.xlsBtn}>엑셀 내보내기</button>
-          <button onClick={() => generatePDF(project, roomData, grandAggregate, grandTotal)} style={s.pdfBtn}>인쇄 / PDF</button>
+          <button onClick={() => generatePDF(project, rooms, grandAggregate, grandTotal)} style={s.pdfBtn}>인쇄 / PDF</button>
         </div>
       </div>
 
@@ -158,7 +159,7 @@ export default function Summary() {
                 <span style={s.collapseIcon}>{collapsedRooms[room.id] ? '▶' : '▼'}</span>
                 <span style={s.roomName}>{room.name}</span>
                 {room.widthM > 0 && room.depthM > 0 && (
-                  <span style={s.roomSize}>{room.widthM}×{room.depthM}×H{room.heightM}m</span>
+                  <span style={s.roomSize}>{Math.round(room.widthM*1000)}×{Math.round(room.depthM*1000)}×H{Math.round(room.heightM*1000)}mm</span>
                 )}
               </div>
 
@@ -256,10 +257,9 @@ export default function Summary() {
                                     {item.name}{item.spec ? ` (${item.spec})` : ''}
                                   </td>
                                   <td style={s.tdQty}>
-                                    {item.qty} EA
-                                    {item.totalLengthMm > 0
-                                      ? ` / ${item.totalLengthMm}mm`
-                                      : item.lengthM > 0 ? ` / ${item.lengthM}m` : ''}
+                                    {item.lengthM > 0
+                                      ? `${item.lengthM}m`
+                                      : `${item.qty} EA`}
                                   </td>
                                   <td style={s.tdCost}>-</td>
                                 </tr>
@@ -284,7 +284,7 @@ export default function Summary() {
                       <div style={{ ...s.surfaceHeader, borderLeftColor: '#4a9a6a' }}>
                         <span style={s.collapseIconSm}>―</span>
                         <span style={s.surfaceName}>칸막이 {partition.name}</span>
-                        <span style={s.surfaceCostHint}>{partition.lengthM}m × H{partition.heightM > 0 ? partition.heightM : room.heightM}m</span>
+                        <span style={s.surfaceCostHint}>{Math.round(partition.lengthM*1000)}mm × H{Math.round((partition.heightM > 0 ? partition.heightM : room.heightM)*1000)}mm</span>
                         {total > 0 && <span style={{ ...s.surfaceCostHint, marginLeft: 'auto' }}>{Math.round(total).toLocaleString()}원</span>}
                       </div>
                       <table style={s.table}>
