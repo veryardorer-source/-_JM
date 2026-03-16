@@ -151,6 +151,14 @@ export const useStore = create(
       rooms: [...s.rooms, createRoom(`실 ${s.rooms.length + 1}`)],
     })),
 
+  addRoomWithData: ({ name, widthM, depthM, heightM }) =>
+    set((s) => {
+      const room = createRoom(name || `실 ${s.rooms.length + 1}`)
+      return {
+        rooms: [...s.rooms, { ...room, widthM: widthM ?? 0, depthM: depthM ?? 0, heightM: heightM ?? 2.4 }],
+      }
+    }),
+
   updateRoom: (roomId, fields) =>
     set((s) => ({
       rooms: s.rooms.map((r) =>
