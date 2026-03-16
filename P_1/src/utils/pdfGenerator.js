@@ -1,6 +1,8 @@
-import { calcSurfaceCost } from './surfaceCost.js'
+import { calcLinearCombo } from './calculations.js'
 
-export function generatePDF(project, rooms, grandAggregate, grandTotal) {
+// roomData: Summary.jsx에서 계산된 배열
+// { room, surfaceData, doorItems, lightingItems, moldingItems, partitionData, roomTotal }
+export function generatePDF(project, roomData, grandAggregate, grandTotal) {
   const lines = []
 
   // ── 스타일 ──────────────────────────────────────
@@ -48,21 +50,9 @@ export function generatePDF(project, rooms, grandAggregate, grandTotal) {
 
   let calcTotal = 0
 
-  rooms.forEach((room, ri) => {
-    const rows = []
-    let roomTotal = 0
-
-    room.surfaces.forEach(sf => {
-      if (!sf.enabled) return
-      const result = calcSurfaceCost(room, sf)
-      if (!result || result.items.length === 0) return
-      result.items.forEach((item, idx) => {
-        rows.push({ sfLabel: idx === 0 ? sf.label : '', item })
-        roomTotal += item.cost || 0
-      })
-    })
-
-    if (rows.length === 0) return
+  roomData.forEach(({ room, surfaceData, doorItems, lightingItems, partitionData, roomTotal }, ri) => {
+    const hasContent = surfaceData.length > 0 || doorItems.length > 0 || lightingItems.length > 0 || partitionData.length > 0
+    if (!hasContent) return
     calcTotal += roomTotal
 
     const dimStr = (room.widthM > 0 && room.depthM > 0)
@@ -72,7 +62,7 @@ export function generatePDF(project, rooms, grandAggregate, grandTotal) {
     lines.push(`<div class="section-title">[${ri + 1}] ${room.name}${dimStr}</div>`)
     lines.push(`<table class="mat">
       <thead><tr>
-        <th style="width:12%">면</th>
+        <th style="width:12%">구분</th>
         <th style="width:26%">자재명</th>
         <th style="width:18%">규격</th>
         <th style="width:8%" class="r">수량</th>
@@ -82,16 +72,78 @@ export function generatePDF(project, rooms, grandAggregate, grandTotal) {
       </tr></thead>
       <tbody>`)
 
-    rows.forEach(({ sfLabel, item }) => {
+    // 면(surface) 항목
+    surfaceData.forEach(({ sf, items }) => {
+      items.forEach((item, idx) => {
+        lines.push(`<tr>
+          <td class="sf-lbl">${idx === 0 ? sf.label : ''}</td>
+          <td>${item.name}</td>
+          <td>${item.spec || ''}</td>
+          <td class="r">${item.qty ?? ''}</td>
+          <td class="c">${item.unit || ''}</td>
+          <td class="r">${item.unitPrice ? Number(item.unitPrice).toLocaleString() : '-'}</td>
+          <td class="r">${item.cost > 0 ? Math.round(item.cost).toLocaleString() : '-'}</td>
+        </tr>`)
+      })
+    })
+
+    // 칸막이벽 항목
+    partitionData.forEach(({ partition, items }) => {
+      items.forEach((item, idx) => {
+        lines.push(`<tr>
+          <td class="sf-lbl">${idx === 0 ? (partition.name || '칸막이') : ''}</td>
+          <td>${item.name}</td>
+          <td>${item.spec || ''}</td>
+          <td class="r">${item.qty ?? ''}</td>
+          <td class="c">${item.unit || ''}</td>
+          <td class="r">${item.unitPrice ? Number(item.unitPrice).toLocaleString() : '-'}</td>
+          <td class="r">${item.cost > 0 ? Math.round(item.cost).toLocaleString() : '-'}</td>
+        </tr>`)
+      })
+    })
+
+    // 도어 항목
+    doorItems.forEach((item, idx) => {
       lines.push(`<tr>
-        <td class="sf-lbl">${sfLabel}</td>
+        <td class="sf-lbl">${idx === 0 ? '도어' : ''}</td>
         <td>${item.name}</td>
-        <td>${item.spec || ''}</td>
-        <td class="r">${item.qty ?? ''}</td>
-        <td class="c">${item.unit || ''}</td>
-        <td class="r">${item.unitPrice ? Number(item.unitPrice).toLocaleString() : '-'}</td>
+        <td></td>
+        <td class="r">${item.qty}</td>
+        <td class="c">${item.unit}</td>
+        <td class="r">${item.unitPrice > 0 ? Number(item.unitPrice).toLocaleString() : '-'}</td>
         <td class="r">${item.cost > 0 ? Math.round(item.cost).toLocaleString() : '-'}</td>
       </tr>`)
+    })
+
+    // 조명 항목 (T5/T7 사이즈별 breakdown 포함)
+    lightingItems.forEach((item, idx) => {
+      const isLinear = item.name.includes('T5') || item.name.includes('T7')
+      const combo = isLinear && item.totalLengthMm > 0 ? calcLinearCombo(item.totalLengthMm) : null
+
+      if (isLinear && combo && combo.items.length > 0) {
+        // T5/T7: 사이즈별 행으로 분리 출력
+        combo.items.forEach((c, ci) => {
+          lines.push(`<tr>
+            <td class="sf-lbl">${idx === 0 && ci === 0 ? '조명' : ''}</td>
+            <td>${item.name} ${c.size}mm</td>
+            <td>${item.spec || ''}</td>
+            <td class="r">${c.count}</td>
+            <td class="c">EA</td>
+            <td class="r">-</td>
+            <td class="r">-</td>
+          </tr>`)
+        })
+      } else {
+        lines.push(`<tr>
+          <td class="sf-lbl">${idx === 0 ? '조명' : ''}</td>
+          <td>${item.name}</td>
+          <td>${item.spec || ''}</td>
+          <td class="r">${item.qty}</td>
+          <td class="c">EA</td>
+          <td class="r">-</td>
+          <td class="r">-</td>
+        </tr>`)
+      }
     })
 
     lines.push(`</tbody>

@@ -3,6 +3,7 @@ import ProjectInfo from './components/ProjectInfo.jsx'
 import RoomCard from './components/RoomCard.jsx'
 import Summary from './components/Summary.jsx'
 import GlobalItems from './components/GlobalItems.jsx'
+import ProjectManager from './components/ProjectManager.jsx'
 
 export default function App() {
   const { rooms, addRoom, loadSampleData } = useStore()
@@ -14,6 +15,7 @@ export default function App() {
         <div style={styles.headerInner}>
           <h1 style={styles.logo}>인테리어 견적 프로그램</h1>
           <span style={styles.version}>v1.0</span>
+          <ProjectManager />
           <button onClick={loadSampleData} style={styles.sampleBtn}>샘플 데이터</button>
         </div>
       </header>

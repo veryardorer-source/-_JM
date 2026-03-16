@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { saveProject, loadProject, generateProjectId } from '../utils/projectStorage.js'
 
 const defaultSurface = (label, direction) => ({
   id: `${direction}_${Date.now()}_${Math.random()}`,
@@ -68,6 +69,47 @@ const DEFAULT_GLOBAL_ITEMS = [
 export const useStore = create(
   persist(
     (set, get) => ({
+  // 현재 프로젝트 ID (null = 미저장 새 프로젝트)
+  currentProjectId: null,
+
+  // 프로젝트 저장
+  saveCurrentProject: (displayName) => {
+    const s = get()
+    const id = s.currentProjectId || generateProjectId()
+    const snapshot = { project: s.project, rooms: s.rooms, globalItems: s.globalItems }
+    saveProject(id, displayName, snapshot)
+    set({ currentProjectId: id })
+    return id
+  },
+
+  // 저장된 프로젝트 불러오기
+  loadStoredProject: (id) => {
+    const snapshot = loadProject(id)
+    if (!snapshot) return false
+    set({
+      currentProjectId: id,
+      project: snapshot.project,
+      rooms: snapshot.rooms,
+      globalItems: snapshot.globalItems ?? get().globalItems,
+    })
+    return true
+  },
+
+  // 새 프로젝트 시작 (현재 상태 초기화)
+  startNewProject: () => {
+    set({
+      currentProjectId: null,
+      project: {
+        siteName: '',
+        clientName: '',
+        manager: '',
+        date: new Date().toISOString().slice(0, 10),
+      },
+      rooms: [],
+      globalItems: DEFAULT_GLOBAL_ITEMS,
+    })
+  },
+
   // 프로젝트 정보
   project: {
     siteName: '',

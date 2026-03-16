@@ -143,7 +143,7 @@ export default function Summary() {
           <button
             onClick={() => exportToExcel(project, roomData, grandAggregate, grandTotal, globalItems).catch(e => alert('오류: ' + e.message))}
             style={s.xlsBtn}>엑셀 내보내기</button>
-          <button onClick={() => generatePDF(project, rooms, grandAggregate, grandTotal)} style={s.pdfBtn}>인쇄 / PDF</button>
+          <button onClick={() => generatePDF(project, roomData, grandAggregate, grandTotal)} style={s.pdfBtn}>인쇄 / PDF</button>
         </div>
       </div>
 
