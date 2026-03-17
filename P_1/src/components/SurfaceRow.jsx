@@ -5,6 +5,178 @@ import { calcSurfaceCost, getSurfaceDimensions } from '../utils/surfaceCost.js'
 import { calcFilmSections } from '../utils/calculations.js'
 import MoldingSection from './MoldingSection.jsx'
 
+// ── 하부 마감 편집기 (분리 시공 - 필름/도배/도장/템파보드) ──────────────────────────
+const LOWER_FINISH_TYPES = [
+  { id: 'film',       label: '인테리어필름' },
+  { id: 'wallpaper',  label: '도배' },
+  { id: 'paint',      label: '도장(페인트)' },
+  { id: 'tempaboard', label: '템파보드(MDF마감)' },
+]
+
+function LowerFinishEditor({ room, sf, upd }) {
+  const { customMaterials, priceOverrides } = useStore()
+  const lowerType = sf.lowerFinishType || 'film'
+  const lowerSections = sf.lowerFilmSections || []
+  const lowerHMm = sf.lowerHeightMm || 0
+  const { sectionResults } = calcFilmSections(lowerSections, lowerHMm, sf.lowerFilmPricePerM || 0)
+  const [bulkInput, setBulkInput] = useState('')
+
+  const addSec = () => {
+    upd({ lowerFilmSections: [...lowerSections, {
+      id: `lfs_${Date.now()}_${Math.random()}`,
+      label: `구간${lowerSections.length + 1}`,
+      widthMm: 600, patternRepeatMm: 0, heightOverrideMm: 0, filmName: '', pricePerM: 0,
+    }] })
+  }
+  const updSec = (id, fields) => upd({ lowerFilmSections: lowerSections.map(s => s.id === id ? { ...s, ...fields } : s) })
+  const delSec = (id) => upd({ lowerFilmSections: lowerSections.filter(s => s.id !== id) })
+  const handleBulk = () => {
+    const widths = bulkInput.split(/[,\s]+/).map(v => parseInt(v, 10)).filter(v => !isNaN(v) && v > 0)
+    if (!widths.length) return
+    upd({ lowerFilmSections: [...lowerSections, ...widths.map((w, i) => ({
+      id: `lfs_${Date.now()}_${i}_${Math.random()}`, label: `구간${lowerSections.length + i + 1}`,
+      widthMm: w, patternRepeatMm: 0, heightOverrideMm: 0, filmName: '', pricePerM: 0,
+    }))] })
+    setBulkInput('')
+  }
+
+  return (
+    <div style={lf.wrap}>
+      {/* 공통 헤더 */}
+      <div style={lf.header}>
+        <span style={lf.title}>▼ 하부 마감</span>
+        <label style={lf.label}>마감 종류
+          <select value={lowerType} onChange={e => upd({ lowerFinishType: e.target.value })} style={lf.select}>
+            {LOWER_FINISH_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+        </label>
+        <label style={lf.label}>높이(mm)
+          <input type="number" min="0" value={sf.lowerHeightMm || ''}
+            onChange={e => upd({ lowerHeightMm: Number(e.target.value) })}
+            style={{ ...lf.input, width: 70 }} placeholder="예)900" />
+        </label>
+
+        {/* 필름/템파보드: MDF 종류 */}
+        {['film', 'tempaboard'].includes(lowerType) && (
+          <label style={lf.label}>MDF 종류
+            <select value={sf.lowerMdfId || 'mdf_9'} onChange={e => upd({ lowerMdfId: e.target.value })} style={lf.select}>
+              {[...MDF, ...customMaterials.filter(m => m.category === 'mdf')].map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {/* 필름: 기본 단가 */}
+        {lowerType === 'film' && (
+          <label style={lf.label}>기본단가(원/m)
+            <input type="number" min="0" value={sf.lowerFilmPricePerM || ''}
+              onChange={e => upd({ lowerFilmPricePerM: Number(e.target.value) })}
+              style={{ ...lf.input, width: 80 }} placeholder="0" />
+          </label>
+        )}
+
+        {/* 도배: 도배지 선택 */}
+        {lowerType === 'wallpaper' && (
+          <>
+            <label style={lf.label}>석고보드
+              <select value={sf.lowerSeokgoId || SEOKGO[0]?.id} onChange={e => upd({ lowerSeokgoId: e.target.value })} style={lf.select}>
+                {[...SEOKGO, ...customMaterials.filter(m => m.category === 'seokgo')].map(s => (
+                  <option key={s.id} value={s.id}>{s.name.replace('900×1800×', '')}</option>
+                ))}
+              </select>
+            </label>
+            <label style={lf.label}>도배지
+              <select value={sf.lowerWallpaperId || ''} onChange={e => upd({ lowerWallpaperId: e.target.value })} style={lf.select}>
+                {[...WALLPAPER, ...customMaterials.filter(m => m.category === 'wallpaper')]
+                  .filter(w => !w.forCeiling)
+                  .map(w => {
+                    const price = priceOverrides[w.id] ?? w.pricePerRoll
+                    return <option key={w.id} value={w.id}>{w.company ? `[${w.company}] ` : ''}{w.name} ({price.toLocaleString()}원/롤)</option>
+                  })}
+              </select>
+            </label>
+          </>
+        )}
+
+        {/* 도장: 단가 입력 */}
+        {lowerType === 'paint' && (
+          <>
+            <label style={lf.label}>석고보드
+              <select value={sf.lowerSeokgoId || SEOKGO[0]?.id} onChange={e => upd({ lowerSeokgoId: e.target.value })} style={lf.select}>
+                {[...SEOKGO, ...customMaterials.filter(m => m.category === 'seokgo')].map(s => (
+                  <option key={s.id} value={s.id}>{s.name.replace('900×1800×', '')}</option>
+                ))}
+              </select>
+            </label>
+            <label style={lf.label}>도장 단가(원/㎡)
+              <input type="number" min="0" value={sf.lowerPaintPricePerSqm || ''}
+                onChange={e => upd({ lowerPaintPricePerSqm: Number(e.target.value) })}
+                style={{ ...lf.input, width: 90 }} placeholder="0" />
+            </label>
+          </>
+        )}
+      </div>
+
+      {/* 필름 구간 입력 */}
+      {lowerType === 'film' && (
+        <>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: '#888' }}>폭 목록(mm):</span>
+            <input value={bulkInput} onChange={e => setBulkInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleBulk()}
+              placeholder="예) 1000, 800, 600" style={{ ...lf.input, width: 200 }} />
+            <button onClick={handleBulk} style={lf.btnSmall}>구간 생성</button>
+            <button onClick={addSec} style={lf.btnSmall}>+ 1개 추가</button>
+          </div>
+          {lowerSections.length > 0 && (
+            <table style={lf.table}>
+              <thead>
+                <tr style={{ background: '#f0f4fb' }}>
+                  {['#','필름명','폭(mm)','패턴(mm)','단가(/m)','소요(m)','금액',''].map((h,i) => (
+                    <th key={i} style={lf.th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lowerSections.map((sec, i) => {
+                  const res = sectionResults.find(r => r.id === sec.id)
+                  return (
+                    <tr key={sec.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfd' }}>
+                      <td style={lf.td}>{i + 1}</td>
+                      <td style={lf.td}><input value={sec.filmName || ''} onChange={e => updSec(sec.id, { filmName: e.target.value })} style={{ ...lf.inputTiny, width: 80, textAlign: 'left' }} placeholder="필름명" /></td>
+                      <td style={lf.td}><input type="number" value={sec.widthMm} onChange={e => updSec(sec.id, { widthMm: Number(e.target.value) })} style={lf.inputTiny} /></td>
+                      <td style={lf.td}><input type="number" value={sec.patternRepeatMm} onChange={e => updSec(sec.id, { patternRepeatMm: Number(e.target.value) })} style={lf.inputTiny} /></td>
+                      <td style={lf.td}><input type="number" value={sec.pricePerM || ''} placeholder={sf.lowerFilmPricePerM || '0'} onChange={e => updSec(sec.id, { pricePerM: Number(e.target.value) })} style={lf.inputTiny} /></td>
+                      <td style={{ ...lf.td, fontWeight: 600, color: '#1e4078' }}>{res ? res.sectionM : '-'}m</td>
+                      <td style={{ ...lf.td, color: '#333' }}>{res && res.sectionCost > 0 ? Math.round(res.sectionCost).toLocaleString() : '-'}</td>
+                      <td style={lf.td}><button onClick={() => delSec(sec.id)} style={lf.btnDel}>✕</button></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+const lf = {
+  wrap: { padding: '8px 14px 10px', background: '#fffbf0', borderTop: '1px dashed #e8c87a' },
+  header: { display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 },
+  title: { fontSize: 12, fontWeight: 700, color: '#8b5e00', marginRight: 4, alignSelf: 'center' },
+  label: { display: 'flex', flexDirection: 'column', fontSize: 10, color: '#888', gap: 2 },
+  input: { border: '1px solid #d0c090', borderRadius: 4, padding: '3px 5px', fontSize: 11, background: '#fff' },
+  select: { border: '1px solid #d0c090', borderRadius: 4, padding: '3px 5px', fontSize: 11, background: '#fff' },
+  btnSmall: { fontSize: 11, padding: '3px 10px', background: '#8b5e00', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 11, marginTop: 6 },
+  th: { padding: '4px 6px', color: '#666', fontWeight: 700, textAlign: 'center', borderBottom: '1px solid #e8d8a0' },
+  td: { padding: '3px 5px', textAlign: 'center' },
+  inputTiny: { border: '1px solid #d0d7e3', borderRadius: 3, padding: '2px 4px', fontSize: 11, width: 60, textAlign: 'right' },
+  btnDel: { background: 'none', border: 'none', color: '#c00', cursor: 'pointer', fontSize: 12 },
+}
+
 export default function SurfaceRow({ room, sf }) {
   const { updateSurface, addFilmSection, updateFilmSection, deleteFilmSection, deleteSurface,
     customMaterials, priceOverrides, methodDefaults,
@@ -140,6 +312,17 @@ export default function SurfaceRow({ room, sf }) {
             </select>
           </label>
         )}
+        {/* 벽 두께 (벽면만) */}
+        {isWall && sf.finishType !== 'none' && (
+          <label style={styles.inlineLabel}>벽 두께
+            <select value={sf.wallThickness || 'default'}
+              onChange={e => upd({ wallThickness: e.target.value })}
+              style={styles.selectSm}>
+              <option value="default">기본(28mm)</option>
+              <option value="100mm">100mm(28+합판+28)</option>
+            </select>
+          </label>
+        )}
         {/* 각재 가로단수 (벽면만) */}
         {isWall && sf.finishType !== 'none' && (
           <label style={styles.inlineLabel}>가로상 단수
@@ -159,6 +342,21 @@ export default function SurfaceRow({ room, sf }) {
             </select>
           </label>
         )}
+        {/* 하부 마감 분리 시공 토글 (벽 + 도배/페인트만) */}
+        {isWall && ['wallpaper', 'paint'].includes(sf.finishType) && (
+          <label style={{ ...styles.inlineLabel, cursor: 'pointer' }}>
+            <span style={{ color: sf.lowerEnabled ? '#8b5e00' : undefined, fontWeight: sf.lowerEnabled ? 700 : undefined }}>하부 마감</span>
+            <input type="checkbox" checked={!!sf.lowerEnabled}
+              onChange={e => {
+                const checked = e.target.checked
+                upd({
+                  lowerEnabled: checked,
+                  ...(checked && !(sf.lowerHeightMm > 0) ? { lowerHeightMm: 900 } : {}),
+                })
+              }}
+              style={{ marginTop: 2 }} />
+          </label>
+        )}
       </div>
 
       {/* 금액 */}
@@ -170,6 +368,10 @@ export default function SurfaceRow({ room, sf }) {
         )}
       </div>
     </div>
+    {/* 하부 마감 편집기 */}
+    {isWall && sf.lowerEnabled && ['wallpaper', 'paint'].includes(sf.finishType) && (
+      <LowerFinishEditor room={room} sf={sf} upd={upd} />
+    )}
     {sf.finishType === 'none' && (
       <CustomItemsEditor room={room} sf={sf}
         addCustomItem={addCustomItem}

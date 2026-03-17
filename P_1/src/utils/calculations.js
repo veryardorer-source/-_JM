@@ -42,10 +42,11 @@ export function calcGakjae(widthMm, heightMm, rows = null) {
 // ── 천장 목공 트러스 각재 계산 ──────────────────
 // 짧은 면 방향 → 1000mm 간격 (주 각재)
 // 긴 면 방향  → 450mm 간격  (부 각재)
-// 지지 합판   → studHeightM(슬라브-마감 차이)에 따라 장수 계산
+// 지지 합판   → 부각재(짧은면 450mm 간격) 위치에서 슬라브를 지지하는 용도
+//              studHeightM(슬라브-마감 차이)에 따라 장수 계산
+//              studHeightM=0이면 합판 불필요 (슬라브H 미입력)
 // roomHeightMm → 층고(마감 높이, mm) 기준으로 각재 길이 선택
 export function calcCeilingGakjae(widthMm, depthMm, studHeightM, roomHeightMm) {
-  const heightM = studHeightM  // 하위 호환성
   const shortMm = Math.min(widthMm, depthMm)
   const longMm  = Math.max(widthMm, depthMm)
 
@@ -64,15 +65,17 @@ export function calcCeilingGakjae(widthMm, depthMm, studHeightM, roomHeightMm) {
   const count = Math.ceil(totalMm / selectedGak.length)
   const breakdown = [{ length: selectedGak.length, count }]
 
-  // 지지 합판: 각재와 각재 사이에 끼워 넣는 지지대
-  // 조각 높이 = 스터드 높이(슬라브-마감 간격), 폭 = 200mm 고정
-  const pieceHeightMm  = Math.max(100, Math.round(heightM * 1000))
+  // 스터드 높이가 0 이하면 최소 200mm로 처리
+  const effectiveStudH = (!studHeightM || studHeightM <= 0) ? 0.2 : studHeightM
+
+  // 조각 높이 = 슬라브-마감 간격, 폭 = 200mm 고정
+  // 지지점 = 부각재(짧은면 450간격) × 주각재(긴면 1000간격) 교차점
+  const pieceHeightMm  = Math.round(effectiveStudH * 1000)
   const pieceWidthMm   = 200
-  const piecesPerCol   = Math.floor(2440 / pieceHeightMm)
+  const piecesPerCol   = pieceHeightMm <= 2440 ? Math.floor(2440 / pieceHeightMm) : 1
   const piecesPerRow   = Math.floor(1220 / pieceWidthMm)
   const piecesPerSheet = Math.max(1, piecesPerCol * piecesPerRow)
-  // 필요 지지대 수 = 주 각재 × 부 각재 교차점
-  const supportCount   = mainCount * subCount
+  const supportCount   = mainCount * subCount  // 부각재 × 주각재 교차점 수
   const hapanSheets    = Math.ceil(supportCount / piecesPerSheet)
 
   return {
@@ -83,6 +86,19 @@ export function calcCeilingGakjae(widthMm, depthMm, studHeightM, roomHeightMm) {
     supportHapanSheets: hapanSheets,
     pieceHeightMm,
   }
+}
+
+// ── 벽 100mm: 각재 28 + 합판 + 28 = 100mm 계산 ──
+// 두 겹의 28mm 각재 사이를 합판으로 채움
+// 1장(1220mm)에서 13조각 재단
+export function calcWall100mmHapan(widthMm, heightMm) {
+  const SHEET_W = 1220, SHEET_H = 2440
+  const verticalCount = Math.floor(widthMm / 450) + 1  // 세로각재 수 (450mm 간격)
+  const stripsPerSheet = 13                             // 1장에서 13조각 (1220/13 ≈ 94mm)
+  const stripsPerPos = Math.ceil(heightMm / SHEET_H)   // 높이 초과 시 2스트립
+  const totalStrips = verticalCount * stripsPerPos
+  const sheets = Math.ceil(totalStrips / stripsPerSheet)
+  return { sheets, verticalCount }
 }
 
 

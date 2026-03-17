@@ -86,6 +86,7 @@ import {
   calcGakjae, calcGakjaeCost, calcCeilingGakjae,
   calcSeokgo, calcBoard,
   calcWallpaper, calcTile, calcFlooring, calcLuba, calcFilmSections,
+  calcWall100mmHapan,
 } from './calculations.js'
 
 // 면의 치수 반환 (방향에 따라 가로/높이 결정)
@@ -135,14 +136,23 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
 
   const isWall = !['floor', 'ceiling'].includes(sf.direction)
 
+  // 분리 시공: 상부 도배/페인트 + 하부 필름 (lowerEnabled)
+  const isSplitWall = isWall && sf.lowerEnabled
+    && (sf.lowerHeightMm > 0)
+    && ['wallpaper', 'paint'].includes(sf.finishType)
+  const lowerHMm  = isSplitWall ? Math.min(sf.lowerHeightMm, heightMm) : 0
+  const upperHMm  = heightMm - lowerHMm
+  const upperArea = isSplitWall ? (widthMm * upperHMm) / 1e6 : area
+  const lowerArea = isSplitWall ? (widthMm * lowerHMm) / 1e6 : 0
+
   // ── 각재 (바닥, 바닥재, 텍스 제외) ────────────────────
   if (sf.direction !== 'floor' && sf.finishType !== 'flooring' && sf.finishType !== 'tex') {
     if (sf.direction === 'ceiling') {
       // 천장: 트러스 구조 계산 (짧은 면 1000mm / 긴 면 450mm)
-      // 스터드 높이 = 슬라브 - 마감 (slabHeightM 미입력 시 room.heightM 사용)
+      // 스터드 높이 = 슬라브 - 마감 (slabHeightM 미입력이면 최소 0.2m 기본값)
       const studHeightM = (room.slabHeightM && room.slabHeightM > room.heightM)
         ? room.slabHeightM - room.heightM
-        : room.heightM
+        : 0.2  // 슬라브H 미입력 시 최소 200mm
       const { breakdown, mainCount, subCount, supportHapanSheets, pieceHeightMm } =
         calcCeilingGakjae(widthMm, heightMm, studHeightM, room.heightM * 1000)
       breakdown.forEach(({ length, count }) => {
@@ -158,16 +168,17 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
           cost: dan * gak.pricePerDan,
         })
       })
-      // 지지 합판 (각재 사이 지지대, 200mm폭 × 스터드높이 재단)
+      // 지지 합판 (부각재 짧은면 450간격 × 주각재 1000간격 교차점, 200mm폭 × 층고차 재단)
       if (supportHapanSheets > 0) {
         const hapan = HAPAN.find(h => h.id === 'hp_normal_4') || HAPAN[0]
+        const unitPrice = ep(hapan, 'pricePerSheet', priceOverrides)
         items.push({
           name: hapan.name,
-          spec: `각재지지 200×${Math.round(pieceHeightMm)}mm재단 (${mainCount}×${subCount}=${mainCount * subCount}점)`,
+          spec: `천장각재지지 200×${Math.round(pieceHeightMm)}mm재단 (부각재${subCount}×주각재${mainCount}=${mainCount * subCount}점)`,
           qty: supportHapanSheets,
           unit: '장',
-          unitPrice: hapan.pricePerSheet,
-          cost: supportHapanSheets * hapan.pricePerSheet,
+          unitPrice,
+          cost: supportHapanSheets * unitPrice,
         })
       }
     } else {
@@ -185,6 +196,23 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
           unitPrice: gak.pricePerDan,
           cost: dan * gak.pricePerDan,
         })
+      })
+    }
+  }
+
+  // ── 합판 (벽 100mm: 각재 28 + 합판 + 28 = 100mm) ─────
+  if (isWall && sf.wallThickness === '100mm') {
+    const { sheets, verticalCount } = calcWall100mmHapan(widthMm, heightMm)
+    if (sheets > 0) {
+      const hapan = HAPAN.find(h => h.id === 'hp_normal_4') || HAPAN[0]
+      const unitPrice = ep(hapan, 'pricePerSheet', priceOverrides)
+      items.push({
+        name: hapan.name,
+        spec: `100mm벽 각재지지 (세로각재 ${verticalCount}위치, 장당 13조각 재단, 28+합판+28=100mm)`,
+        qty: sheets,
+        unit: '장',
+        unitPrice,
+        cost: sheets * unitPrice,
       })
     }
   }
@@ -215,18 +243,21 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
   }
 
   // ── 석고보드 (바닥 제외) ─────────────────────────────
+  // 분리시공 시: 상부(도배/페인트) 구간 면적만 적용
   const needsSeokgo = sf.direction !== 'floor' && ['wallpaper', 'paint', 'film', 'luba', 'tile'].includes(sf.finishType)
   if (needsSeokgo) {
     const layers = sf.finishType === 'paint' ? 2 : 1
     const seokgoType = sf.finishType === 'tile' ? 'sg_waterproof' : sf.seokgoType
     const sg = findMat(SEOKGO, seokgoType, customMaterials, 'seokgo') || SEOKGO[0]
+    const seokgoArea = isSplitWall ? upperArea : area
+    const seokgoSpec = isSplitWall ? `상부 ${upperHMm}mm구간${layers > 1 ? ` ${layers}겹` : ''}` : (layers > 1 ? `${layers}겹` : '')
     if (isCustom(sg)) {
-      const r = calcCustomMat(area * layers, widthMm, heightMm, room, sg, priceOverrides)
-      items.push({ ...r, spec: layers > 1 ? `${layers}겹` : '' })
+      const r = calcCustomMat(seokgoArea * layers, widthMm, upperHMm, room, sg, priceOverrides)
+      items.push({ ...r, spec: seokgoSpec })
     } else {
       const unitPrice = ep(sg, 'pricePerSheet', priceOverrides)
-      const { sheets, cost } = calcSeokgo(area, layers, unitPrice)
-      items.push({ name: sg.name, spec: layers > 1 ? `${layers}겹` : '', qty: sheets, unit: '장', unitPrice, cost })
+      const { sheets, cost } = calcSeokgo(seokgoArea, layers, unitPrice)
+      items.push({ name: sg.name, spec: seokgoSpec, qty: sheets, unit: '장', unitPrice, cost })
     }
   }
 
@@ -246,23 +277,27 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
   switch (sf.finishType) {
     case 'wallpaper': {
       const wp = findMat(WALLPAPER, sf.finishMaterialId, customMaterials, 'wallpaper') || WALLPAPER[0]
+      const wpArea = isSplitWall ? upperArea : area
+      const wpSpec = isSplitWall ? `상부 ${upperHMm}mm구간` : ''
       if (isCustom(wp)) {
-        items.push(calcCustomMat(area, widthMm, heightMm, room, wp, priceOverrides))
+        items.push(calcCustomMat(wpArea, widthMm, isSplitWall ? upperHMm : heightMm, room, wp, priceOverrides))
       } else {
         const unitPrice = ep(wp, 'pricePerRoll', priceOverrides)
-        const { rolls, cost } = calcWallpaper(area, unitPrice, wp.pyungPerRoll)
-        items.push({ name: wp.name, spec: `${rolls}롤`, qty: rolls, unit: '롤', unitPrice, cost })
+        const { rolls, cost } = calcWallpaper(wpArea, unitPrice, wp.pyungPerRoll)
+        items.push({ name: wp.name, spec: `${wpSpec}${rolls}롤`, qty: rolls, unit: '롤', unitPrice, cost })
       }
       break
     }
     case 'paint': {
+      const paintArea = isSplitWall ? upperArea : area
+      const paintSpec = isSplitWall ? `상부 ${upperHMm}mm구간 ${Math.round(paintArea * 10) / 10}㎡` : `${Math.round(paintArea * 10) / 10}㎡`
       items.push({
         name: '도장(페인트)',
-        spec: `${Math.round(area * 10) / 10}㎡`,
-        qty: Math.round(area * 10) / 10,
+        spec: paintSpec,
+        qty: Math.round(paintArea * 10) / 10,
         unit: '㎡',
         unitPrice: sf.paintPricePerSqm || 0,
-        cost: (sf.paintPricePerSqm || 0) * area,
+        cost: (sf.paintPricePerSqm || 0) * paintArea,
       })
       break
     }
@@ -359,6 +394,82 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
     }
     default:
       break
+  }
+
+  // ── 하부 마감 (분리 시공: 상부 도배/페인트 + 하부 다양한 마감) ──────
+  if (isSplitWall) {
+    const lowerType = sf.lowerFinishType || 'film'
+    const lowerSpec = `하부 ${lowerHMm}mm구간`
+
+    if (lowerType === 'film' || lowerType === 'tempaboard') {
+      // MDF (필름/템파보드 공통)
+      const lowerMdf = findMat(MDF, sf.lowerMdfId, customMaterials, 'mdf') || MDF.find(m => m.id === 'mdf_9')
+      if (lowerMdf) {
+        if (isCustom(lowerMdf)) {
+          const r = calcCustomMat(lowerArea, widthMm, lowerHMm, room, lowerMdf, priceOverrides)
+          items.push({ ...r, spec: lowerSpec })
+        } else {
+          const unitPrice = ep(lowerMdf, 'pricePerSheet', priceOverrides)
+          const { sheets, cost } = calcBoard(lowerArea, lowerMdf.areaPerSheet, unitPrice)
+          items.push({ name: lowerMdf.name, spec: lowerSpec, qty: sheets, unit: '장', unitPrice, cost })
+        }
+      }
+    }
+
+    if (lowerType === 'wallpaper' || lowerType === 'paint') {
+      // 석고보드 (하부)
+      const lowerSg = findMat(SEOKGO, sf.lowerSeokgoId, customMaterials, 'seokgo') || SEOKGO[0]
+      if (lowerSg) {
+        const lowerLayers = lowerType === 'paint' ? 2 : 1
+        const unitPrice = ep(lowerSg, 'pricePerSheet', priceOverrides)
+        const { sheets, cost } = calcSeokgo(lowerArea, lowerLayers, unitPrice)
+        items.push({ name: lowerSg.name, spec: `${lowerSpec}${lowerLayers > 1 ? ` ${lowerLayers}겹` : ''}`, qty: sheets, unit: '장', unitPrice, cost })
+      }
+    }
+
+    if (lowerType === 'film') {
+      // 필름 구간 (하부)
+      const lowerSections = sf.lowerFilmSections || []
+      const lowerDefaultPrice = sf.lowerFilmPricePerM || 0
+      const { sectionResults: lowerResults } = calcFilmSections(lowerSections, lowerHMm, lowerDefaultPrice)
+      const lFilmGroups = {}
+      lowerResults.forEach(sec => {
+        const key = sec.filmName || '인테리어필름'
+        if (!lFilmGroups[key]) lFilmGroups[key] = { filmName: key, sections: [], totalM: 0, cost: 0, pricePerM: sec.pricePerM }
+        lFilmGroups[key].sections.push(sec)
+        lFilmGroups[key].totalM = Math.round((lFilmGroups[key].totalM + sec.sectionM) * 10) / 10
+        lFilmGroups[key].cost += sec.sectionCost
+      })
+      Object.values(lFilmGroups).forEach(group => {
+        const displayName = group.filmName === '인테리어필름' ? '인테리어필름' : `인테리어필름(${group.filmName})`
+        items.push({ name: displayName, spec: lowerSpec, surfaceLabel: sf.label, sections: group.sections, qty: group.totalM, unit: 'm', unitPrice: group.pricePerM, cost: group.cost, isFilm: true })
+      })
+      if (lowerResults.length === 0) {
+        items.push({ name: '인테리어필름', spec: lowerSpec, surfaceLabel: sf.label, sections: [], qty: 0, unit: 'm', unitPrice: sf.lowerFilmPricePerM || 0, cost: 0, isFilm: true })
+      }
+    }
+
+    if (lowerType === 'wallpaper') {
+      // 도배 (하부)
+      const wp = findMat(WALLPAPER, sf.lowerWallpaperId, customMaterials, 'wallpaper') || WALLPAPER.find(w => !w.forCeiling) || WALLPAPER[0]
+      if (wp) {
+        const unitPrice = ep(wp, 'pricePerRoll', priceOverrides)
+        const { rolls, cost } = calcWallpaper(lowerArea, unitPrice, wp.pyungPerRoll)
+        items.push({ name: wp.name, spec: `${lowerSpec} ${rolls}롤`, qty: rolls, unit: '롤', unitPrice, cost })
+      }
+    }
+
+    if (lowerType === 'paint') {
+      // 도장 (하부)
+      items.push({
+        name: '도장(페인트)',
+        spec: `${lowerSpec} ${Math.round(lowerArea * 10) / 10}㎡`,
+        qty: Math.round(lowerArea * 10) / 10,
+        unit: '㎡',
+        unitPrice: sf.lowerPaintPricePerSqm || 0,
+        cost: (sf.lowerPaintPricePerSqm || 0) * lowerArea,
+      })
+    }
   }
 
   const total = items.reduce((s, i) => s + i.cost, 0)

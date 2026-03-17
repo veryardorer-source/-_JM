@@ -5,13 +5,8 @@ import { calcSurfaceCost } from '../utils/surfaceCost.js'
 import LightingSection from './LightingSection.jsx'
 import PartitionSection from './PartitionSection.jsx'
 
-const DOOR_TYPES = [
-  '방문', 'ABS도어', '강화도어', '양문형도어', '양개문',
-  '현관문', '미서기문', '폴딩도어', '중문', '기타',
-]
-
 export default function RoomCard({ room }) {
-  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor, addWall, customMaterials, priceOverrides } = useStore()
+  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor, addWall, customMaterials, priceOverrides, doorTypes } = useStore()
   const [collapsed, setCollapsed] = useState(false)
   const matOpts = { customMaterials, priceOverrides }
 
@@ -87,8 +82,16 @@ export default function RoomCard({ room }) {
                   <div key={door.id} style={styles.doorCard}>
                     {/* 1행: 기본 치수 */}
                     <div style={styles.doorRow}>
-                      <select value={door.type} onChange={e => updateDoor(room.id, door.id, { type: e.target.value })} style={{ ...styles.doorInput, width: 90 }}>
-                        {DOOR_TYPES.map(t => <option key={t}>{t}</option>)}
+                      <select value={door.type} onChange={e => {
+                        const name = e.target.value
+                        const found = (doorTypes || []).find(t => (typeof t === 'string' ? t : t.name) === name)
+                        const defaultPrice = found && typeof found !== 'string' ? found.defaultPrice : 0
+                        updateDoor(room.id, door.id, { type: name, ...(door.unitPrice === 0 && defaultPrice ? { unitPrice: defaultPrice } : {}) })
+                      }} style={{ ...styles.doorInput, width: 90 }}>
+                        {(doorTypes || []).map(t => {
+                          const name = typeof t === 'string' ? t : t.name
+                          return <option key={name} value={name}>{name}</option>
+                        })}
                       </select>
                       <input type="number" min="0" step="0.01" value={door.widthM || ''}
                         onChange={e => updateDoor(room.id, door.id, { widthM: Number(e.target.value) })}

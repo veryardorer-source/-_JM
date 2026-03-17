@@ -75,6 +75,21 @@ export const useStore = create(
   customMaterials: [],
   // 기본 자재 단가 덮어쓰기 { materialId: price }
   priceOverrides: {},
+  // 도어 종류 목록: [{name, defaultPrice}] (설정창에서 추가/삭제/단가 설정 가능)
+  doorTypes: [
+    { name: '방문', defaultPrice: 0 },
+    { name: 'ABS도어', defaultPrice: 0 },
+    { name: '강화도어', defaultPrice: 0 },
+    { name: '양문형도어', defaultPrice: 0 },
+    { name: '양개문', defaultPrice: 0 },
+    { name: '현관문', defaultPrice: 0 },
+    { name: '미서기문', defaultPrice: 0 },
+    { name: '폴딩도어', defaultPrice: 0 },
+    { name: '중문', defaultPrice: 0 },
+    { name: '기타', defaultPrice: 0 },
+  ],
+  setDoorTypes: (list) => set({ doorTypes: list }),
+
   // 시공방법별 기본 설정
   methodDefaults: {
     wallpaper: { seokgoType: 'sg_normal', mdfId: 'mdf_9', gakjaeRows: null, insulationType: 'none' },

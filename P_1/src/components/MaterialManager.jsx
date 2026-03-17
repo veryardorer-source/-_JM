@@ -386,6 +386,90 @@ function MaterialTab() {
   )
 }
 
+// ─── 도어 종류 설정 탭 ─────────────────────────────────────
+function DoorTypeTab() {
+  const { doorTypes, setDoorTypes } = useStore()
+  const [newName, setNewName] = useState('')
+  const [newPrice, setNewPrice] = useState('')
+
+  // doorTypes 항목을 항상 {name, defaultPrice} 형태로 정규화
+  const normalized = (doorTypes || []).map(t => typeof t === 'string' ? { name: t, defaultPrice: 0 } : t)
+
+  const handleAdd = () => {
+    const v = newName.trim()
+    if (!v || normalized.some(t => t.name === v)) return
+    setDoorTypes([...normalized, { name: v, defaultPrice: Number(newPrice) || 0 }])
+    setNewName(''); setNewPrice('')
+  }
+  const handleUpdate = (i, fields) => {
+    const next = normalized.map((t, idx) => idx === i ? { ...t, ...fields } : t)
+    setDoorTypes(next)
+  }
+  const handleDelete = (i) => setDoorTypes(normalized.filter((_, idx) => idx !== i))
+  const handleMove = (i, dir) => {
+    const next = [...normalized]
+    const j = i + dir
+    if (j < 0 || j >= next.length) return
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setDoorTypes(next)
+  }
+
+  return (
+    <div style={s.methodWrap}>
+      <p style={s.methodDesc}>
+        도어 종류와 기본 단가를 설정합니다. 기본 단가는 도어 추가 시 자동 적용됩니다.
+      </p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
+        <thead>
+          <tr style={{ background: '#eef2f8', borderBottom: '2px solid #dde4f0' }}>
+            <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#555' }}>도어 종류</th>
+            <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#555' }}>기본 단가(원/짝)</th>
+            <th style={{ padding: '8px 6px', width: 80 }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {normalized.map((t, i) => (
+            <tr key={t.name} style={{ borderBottom: '1px solid #eef1f7', background: i % 2 === 0 ? '#fff' : '#fafbfd' }}>
+              <td style={{ padding: '6px 12px' }}>
+                <input value={t.name}
+                  onChange={e => handleUpdate(i, { name: e.target.value })}
+                  style={{ border: '1px solid #d0d7e3', borderRadius: 4, padding: '4px 8px', fontSize: 13, width: 140 }} />
+              </td>
+              <td style={{ padding: '6px 12px', textAlign: 'right' }}>
+                <input type="number" min="0" value={t.defaultPrice || ''}
+                  placeholder="0"
+                  onChange={e => handleUpdate(i, { defaultPrice: Number(e.target.value) })}
+                  style={{ border: '1px solid #d0d7e3', borderRadius: 4, padding: '4px 8px', fontSize: 13, width: 110, textAlign: 'right' }} />
+              </td>
+              <td style={{ padding: '6px 6px', textAlign: 'center' }}>
+                <button onClick={() => handleMove(i, -1)} disabled={i === 0}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 12 }}>▲</button>
+                <button onClick={() => handleMove(i, 1)} disabled={i === normalized.length - 1}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 12 }}>▼</button>
+                <button onClick={() => handleDelete(i)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 13, marginLeft: 4 }}>✕</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          placeholder="새 도어 종류명"
+          style={{ border: '1px solid #d0d7e3', borderRadius: 6, padding: '6px 10px', fontSize: 13, width: 140 }} />
+        <input type="number" min="0" value={newPrice} onChange={e => setNewPrice(e.target.value)}
+          placeholder="기본 단가(원)"
+          style={{ border: '1px solid #d0d7e3', borderRadius: 6, padding: '6px 10px', fontSize: 13, width: 120, textAlign: 'right' }} />
+        <button onClick={handleAdd}
+          style={{ padding: '6px 16px', background: '#1e4078', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
+          추가
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── 시공방법 설정 탭 ─────────────────────────────────────
 function MethodTab() {
   const { methodDefaults, setMethodDefault, customMaterials } = useStore()
@@ -471,9 +555,12 @@ export default function MaterialManager() {
         <button onClick={() => setActiveTab('method')} style={activeTab === 'method' ? { ...s.tab, ...s.tabActive } : s.tab}>
           시공방법 기본 설정
         </button>
+        <button onClick={() => setActiveTab('doortype')} style={activeTab === 'doortype' ? { ...s.tab, ...s.tabActive } : s.tab}>
+          도어 종류 관리
+        </button>
       </div>
 
-      {activeTab === 'material' ? <MaterialTab /> : <MethodTab />}
+      {activeTab === 'material' ? <MaterialTab /> : activeTab === 'method' ? <MethodTab /> : <DoorTypeTab />}
     </div>
   )
 }
