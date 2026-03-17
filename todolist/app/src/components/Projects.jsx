@@ -18,12 +18,13 @@ const TYPE_COLOR = {
   '디자인의뢰': 'bg-purple-50 text-purple-600 border-purple-200',
 }
 
-const STATUS_OPTIONS = ['진행중', '대기', '완료', '보류']
+const STATUS_OPTIONS = ['진행중', '대기', '완료', '보류', '취소']
 const STATUS_COLOR = {
   '진행중': 'bg-blue-100 text-blue-700',
   '대기':   'bg-gray-100 text-gray-600',
   '완료':   'bg-green-100 text-green-700',
   '보류':   'bg-yellow-100 text-yellow-700',
+  '취소':   'bg-red-100 text-red-600',
 }
 
 function getProgress(stages) {
@@ -137,7 +138,7 @@ export default function Projects() {
       {/* 필터 + 추가 */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1.5 flex-wrap">
-          {['전체', '진행중', '대기', '완료', '보류'].map(f => (
+          {['전체', '진행중', '대기', '완료', '보류', '취소'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === f ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
               {f}
@@ -163,7 +164,7 @@ export default function Projects() {
             const isOpen = selectedId === p.id
 
             return (
-              <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div key={p.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${p.status === '취소' ? 'border-red-100 opacity-60' : 'border-gray-100'}`}>
                 {/* 카드 헤더 */}
                 <div className="px-4 py-4 cursor-pointer" onClick={() => setSelectedId(isOpen ? null : p.id)}>
                   <div className="flex items-start justify-between">
