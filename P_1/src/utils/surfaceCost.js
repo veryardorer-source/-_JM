@@ -4,6 +4,84 @@
 import {
   GAKJAE, SEOKGO, MDF, HAPAN, WALLPAPER, TILE, FLOORING, LUBA, TEX, INSULATION,
 } from '../data/materials.js'
+
+// 자재 조회: 커스텀 자재 우선, 없으면 기본 배열에서 찾기
+function findMat(defaultArr, id, customMaterials = [], category = '') {
+  if (id) {
+    const custom = customMaterials.find((m) => m.category === category && m.id === id)
+    if (custom) return custom
+  }
+  return defaultArr.find((m) => m.id === id)
+}
+
+// 단가 조회: priceOverrides 우선 적용
+function ep(mat, priceKey, priceOverrides = {}) {
+  if (!mat) return 0
+  // 커스텀 자재는 price 필드 사용
+  const base = mat.price !== undefined ? mat.price : (mat[priceKey] ?? 0)
+  return priceOverrides[mat.id] !== undefined ? priceOverrides[mat.id] : base
+}
+
+// 커스텀 자재 여부 확인
+function isCustom(mat) {
+  return mat && typeof mat.id === 'string' && mat.id.startsWith('custom_')
+}
+
+// 커스텀 자재 산출방식별 계산
+function calcCustomMat(area, widthMm, heightMm, room, mat, priceOverrides) {
+  const price = priceOverrides[mat.id] !== undefined ? priceOverrides[mat.id] : (mat.price || 0)
+  const waste = 1 + (mat.wasteFactor ?? 0.1)
+  const name = mat.company ? `[${mat.company}] ${mat.name}` : mat.name
+
+  switch (mat.calcMethod) {
+    case 'per_sqm': {
+      const qty = Math.round(area * waste * 100) / 100
+      return { name, qty, unit: '㎡', unitPrice: price, cost: qty * price }
+    }
+    case 'per_sheet': {
+      const qty = Math.ceil(area * waste / (mat.areaPerSheet || 1))
+      return { name, qty, unit: '장', unitPrice: price, cost: qty * price }
+    }
+    case 'per_box': {
+      const qty = Math.ceil(area * waste / (mat.areaPerBox || 1))
+      return { name, qty, unit: 'BOX', unitPrice: price, cost: qty * price }
+    }
+    case 'per_roll': {
+      const pyungPerRoll = (mat.pyungPerRoll || 5) * (1 - (mat.wasteFactor ?? 0.1))
+      const pyung = area / 3.3058
+      const qty = Math.ceil(pyung / pyungPerRoll)
+      return { name, spec: `${qty}롤`, qty, unit: '롤', unitPrice: price, cost: qty * price }
+    }
+    case 'per_pack': {
+      const qty = Math.ceil(area * waste / (mat.areaPerPack || 1))
+      return { name, qty, unit: '팩', unitPrice: price, cost: qty * price }
+    }
+    case 'per_tile': {
+      const tileArea = (mat.tileW || 600) * (mat.tileH || 600) / 1e6
+      const areaPerBox = tileArea * (mat.tilesPerBox || 1)
+      const qty = Math.ceil(area * waste / areaPerBox)
+      return { name, qty, unit: 'BOX', unitPrice: price, cost: qty * price }
+    }
+    case 'per_linear_m': {
+      const base = mat.linearBase || 'width'
+      let m = 0
+      if (base === 'width') m = widthMm / 1000
+      else if (base === 'depth') m = (room.depthM || 0)
+      else if (base === 'perimeter') m = ((widthMm + heightMm) / 1000) * 2
+      else if (base === 'height') m = heightMm / 1000
+      const qty = Math.ceil(m * waste)
+      return { name, qty, unit: 'm', unitPrice: price, cost: qty * price }
+    }
+    case 'per_ea': {
+      const qty = mat.defaultQty || 1
+      return { name, qty, unit: 'EA', unitPrice: price, cost: qty * price }
+    }
+    default: {
+      const qty = Math.round(area * waste * 100) / 100
+      return { name, qty, unit: mat.unit || '㎡', unitPrice: price, cost: qty * price }
+    }
+  }
+}
 import {
   calcGakjae, calcGakjaeCost, calcCeilingGakjae,
   calcSeokgo, calcBoard,
@@ -31,8 +109,22 @@ export function getSurfaceDimensions(room, sf) {
   }
 }
 
-export function calcSurfaceCost(room, sf) {
-  if (!sf.enabled || sf.finishType === 'none' || !sf.finishType) return { items: [], total: 0 }
+export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides = {} } = {}) {
+  // 직접설정: customItems만 합산
+  if (!sf.enabled || !sf.finishType) return { items: [], total: 0 }
+  if (sf.finishType === 'none') {
+    const items = (sf.customItems || [])
+      .filter(ci => ci.name)
+      .map(ci => ({
+        name: ci.name,
+        spec: ci.spec || '',
+        qty: ci.qty || 0,
+        unit: ci.unit || '식',
+        unitPrice: ci.unitPrice || 0,
+        cost: (ci.qty || 0) * (ci.unitPrice || 0),
+      }))
+    return { items, total: items.reduce((s, i) => s + i.cost, 0) }
+  }
 
   const { widthMm, heightMm, areaSqm } = getSurfaceDimensions(room, sf)
   if (areaSqm <= 0) return { items: [], total: 0 }
@@ -59,19 +151,19 @@ export function calcSurfaceCost(room, sf) {
         const dan = Math.ceil(count / gak.countPerDan)
         items.push({
           name: `각재 28×28×${length}`,
-          spec: `주${mainCount}본/부${subCount}본 트러스`,
+          spec: `주${mainCount}본(1000간격)/부${subCount}본(450간격) 트러스`,
           qty: dan,
           unit: '단',
           unitPrice: gak.pricePerDan,
           cost: dan * gak.pricePerDan,
         })
       })
-      // 지지 합판 (4.6T 기준, 재단 높이 = 천장 높이)
+      // 지지 합판 (각재 사이 지지대, 200mm폭 × 스터드높이 재단)
       if (supportHapanSheets > 0) {
         const hapan = HAPAN.find(h => h.id === 'hp_normal_4') || HAPAN[0]
         items.push({
           name: hapan.name,
-          spec: `천장스터드지지 ${Math.round(pieceHeightMm)}mm재단 (${mainCount}×${subCount}=${mainCount * subCount}점)`,
+          spec: `각재지지 200×${Math.round(pieceHeightMm)}mm재단 (${mainCount}×${subCount}=${mainCount * subCount}점)`,
           qty: supportHapanSheets,
           unit: '장',
           unitPrice: hapan.pricePerSheet,
@@ -110,11 +202,15 @@ export function calcSurfaceCost(room, sf) {
 
   // ── 흡음재 ──────────────────────────────────────
   if (sf.insulationType && sf.insulationType !== 'none') {
-    const ins = INSULATION.find(i => i.id === sf.insulationType)
+    const ins = findMat(INSULATION, sf.insulationType, customMaterials, 'insulation')
     if (ins) {
-      const qty = Math.ceil(area * 1.05)
-      const cost = qty * ins.pricePerSqm
-      items.push({ name: ins.name, qty, unit: '㎡', unitPrice: ins.pricePerSqm, cost })
+      if (isCustom(ins)) {
+        items.push(calcCustomMat(area, widthMm, heightMm, room, ins, priceOverrides))
+      } else {
+        const unitPrice = ep(ins, 'pricePerSqm', priceOverrides)
+        const qty = Math.ceil(area * 1.05)
+        items.push({ name: ins.name, qty, unit: '㎡', unitPrice, cost: qty * unitPrice })
+      }
     }
   }
 
@@ -123,38 +219,40 @@ export function calcSurfaceCost(room, sf) {
   if (needsSeokgo) {
     const layers = sf.finishType === 'paint' ? 2 : 1
     const seokgoType = sf.finishType === 'tile' ? 'sg_waterproof' : sf.seokgoType
-    const sg = SEOKGO.find(s => s.id === seokgoType) || SEOKGO[0]
-    const { sheets, cost } = calcSeokgo(area, layers, sg.pricePerSheet)
-    items.push({
-      name: sg.name,
-      spec: layers > 1 ? `${layers}겹` : '',
-      qty: sheets,
-      unit: '장',
-      unitPrice: sg.pricePerSheet,
-      cost,
-    })
+    const sg = findMat(SEOKGO, seokgoType, customMaterials, 'seokgo') || SEOKGO[0]
+    if (isCustom(sg)) {
+      const r = calcCustomMat(area * layers, widthMm, heightMm, room, sg, priceOverrides)
+      items.push({ ...r, spec: layers > 1 ? `${layers}겹` : '' })
+    } else {
+      const unitPrice = ep(sg, 'pricePerSheet', priceOverrides)
+      const { sheets, cost } = calcSeokgo(area, layers, unitPrice)
+      items.push({ name: sg.name, spec: layers > 1 ? `${layers}겹` : '', qty: sheets, unit: '장', unitPrice, cost })
+    }
   }
 
   // ── MDF (인테리어필름) ───────────────────────────
   if (sf.finishType === 'film') {
-    const mdf = MDF.find(m => m.id === sf.mdfId) || MDF.find(m => m.id === 'mdf_9')
-    const { sheets, cost } = calcBoard(area, mdf.areaPerSheet, mdf.pricePerSheet)
-    items.push({
-      name: mdf.name,
-      spec: '',
-      qty: sheets,
-      unit: '장',
-      unitPrice: mdf.pricePerSheet,
-      cost,
-    })
+    const mdf = findMat(MDF, sf.mdfId, customMaterials, 'mdf') || MDF.find(m => m.id === 'mdf_9')
+    if (isCustom(mdf)) {
+      items.push(calcCustomMat(area, widthMm, heightMm, room, mdf, priceOverrides))
+    } else {
+      const unitPrice = ep(mdf, 'pricePerSheet', priceOverrides)
+      const { sheets, cost } = calcBoard(area, mdf.areaPerSheet, unitPrice)
+      items.push({ name: mdf.name, spec: '', qty: sheets, unit: '장', unitPrice, cost })
+    }
   }
 
   // ── 마감재 ───────────────────────────────────────
   switch (sf.finishType) {
     case 'wallpaper': {
-      const wp = WALLPAPER.find(w => w.id === sf.finishMaterialId) || WALLPAPER[0]
-      const { rolls, cost } = calcWallpaper(area, wp.pricePerRoll, wp.pyungPerRoll)
-      items.push({ name: wp.name, spec: `${rolls}롤`, qty: rolls, unit: '롤', unitPrice: wp.pricePerRoll, cost })
+      const wp = findMat(WALLPAPER, sf.finishMaterialId, customMaterials, 'wallpaper') || WALLPAPER[0]
+      if (isCustom(wp)) {
+        items.push(calcCustomMat(area, widthMm, heightMm, room, wp, priceOverrides))
+      } else {
+        const unitPrice = ep(wp, 'pricePerRoll', priceOverrides)
+        const { rolls, cost } = calcWallpaper(area, unitPrice, wp.pyungPerRoll)
+        items.push({ name: wp.name, spec: `${rolls}롤`, qty: rolls, unit: '롤', unitPrice, cost })
+      }
       break
     }
     case 'paint': {
@@ -169,21 +267,36 @@ export function calcSurfaceCost(room, sf) {
       break
     }
     case 'tile': {
-      const tile = TILE.find(t => t.id === sf.finishMaterialId) || TILE[0]
-      const { boxes, cost } = calcTile(widthMm, heightMm, tile)
-      items.push({ name: tile.name, spec: `${boxes}BOX`, qty: boxes, unit: 'BOX', unitPrice: tile.pricePerBox, cost })
+      const tile = findMat(TILE, sf.finishMaterialId, customMaterials, 'tile') || TILE[0]
+      if (isCustom(tile)) {
+        items.push(calcCustomMat(area, widthMm, heightMm, room, tile, priceOverrides))
+      } else {
+        const unitPrice = ep(tile, 'pricePerBox', priceOverrides)
+        const { boxes, cost } = calcTile(widthMm, heightMm, { ...tile, pricePerBox: unitPrice })
+        items.push({ name: tile.name, spec: `${boxes}BOX`, qty: boxes, unit: 'BOX', unitPrice, cost })
+      }
       break
     }
     case 'flooring': {
-      const fl = FLOORING.find(f => f.id === sf.finishMaterialId) || FLOORING[0]
-      const { units, cost } = calcFlooring(areaSqm, fl.areaPerUnit, fl.pricePerUnit, fl.unit)
-      items.push({ name: fl.name, spec: '', qty: units, unit: fl.unit, unitPrice: fl.pricePerUnit, cost })
+      const fl = findMat(FLOORING, sf.finishMaterialId, customMaterials, 'flooring') || FLOORING[0]
+      if (isCustom(fl)) {
+        items.push(calcCustomMat(area, widthMm, heightMm, room, fl, priceOverrides))
+      } else {
+        const unitPrice = ep(fl, 'pricePerUnit', priceOverrides)
+        const { units, cost } = calcFlooring(areaSqm, fl.areaPerUnit, unitPrice, fl.unit)
+        items.push({ name: fl.name, spec: '', qty: units, unit: fl.unit, unitPrice, cost })
+      }
       break
     }
     case 'luba': {
-      const lu = LUBA[0]
-      const { packs, cost } = calcLuba(area, lu.areaPerPack, lu.pricePerPack)
-      items.push({ name: lu.name, spec: `${packs}팩`, qty: packs, unit: '팩', unitPrice: lu.pricePerPack, cost })
+      const lu = findMat(LUBA, LUBA[0]?.id, customMaterials, 'luba') || LUBA[0]
+      if (isCustom(lu)) {
+        items.push(calcCustomMat(area, widthMm, heightMm, room, lu, priceOverrides))
+      } else {
+        const unitPrice = ep(lu, 'pricePerPack', priceOverrides)
+        const { packs, cost } = calcLuba(area, lu.areaPerPack, unitPrice)
+        items.push({ name: lu.name, spec: `${packs}팩`, qty: packs, unit: '팩', unitPrice, cost })
+      }
       break
     }
     case 'tex': {

@@ -45,7 +45,8 @@ function fmtQty(qty, unit) {
 }
 
 export default function Summary() {
-  const { project, rooms, globalItems } = useStore()
+  const { project, rooms, globalItems, customMaterials, priceOverrides } = useStore()
+  const matOpts = { customMaterials, priceOverrides }
   const [collapsedRooms, setCollapsedRooms] = useState({})
   const [collapsedSurfaces, setCollapsedSurfaces] = useState({})
 
@@ -69,7 +70,7 @@ export default function Summary() {
     const surfaceData = allSurfaces
       .filter(sf => sf.enabled && sf.finishType && sf.finishType !== 'none')
       .map(sf => {
-        const result = calcSurfaceCost(room, sf)
+        const result = calcSurfaceCost(room, sf, matOpts)
         if (!result || result.items.length === 0) return null
         return { sf, items: result.items, total: result.total }
       })
@@ -418,60 +419,64 @@ function AggRow({ item, highlight }) {
 }
 
 const s = {
-  card:  { background: '#fff', borderRadius: 8, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' },
-  header:{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderBottom: '2px solid #1e4078', paddingBottom: 6 },
-  title: { fontSize: 14, fontWeight: 700, color: '#1e4078' },
-  pdfBtn:{ fontSize: 12, padding: '6px 14px', background: '#1e4078', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 600 },
-  xlsBtn:{ fontSize: 12, padding: '6px 14px', background: '#1a7a3a', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontWeight: 600 },
-  empty: { color: '#aaa', fontSize: 13, textAlign: 'center', padding: 24 },
+  card:  {
+    background: '#fff', borderRadius: 16, padding: '16px 18px',
+    boxShadow: '0 4px 20px rgba(30,64,120,0.1), 0 1px 4px rgba(30,64,120,0.06)',
+    border: '1px solid #e8edf5',
+  },
+  header:{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '2px solid #e8edf5', paddingBottom: 10 },
+  title: { fontSize: 14, fontWeight: 800, color: '#1e4078', letterSpacing: '-0.2px' },
+  pdfBtn:{ fontSize: 11, padding: '6px 12px', background: 'linear-gradient(135deg,#1e4078,#2d62b8)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, boxShadow: '0 2px 6px rgba(30,64,120,0.25)' },
+  xlsBtn:{ fontSize: 11, padding: '6px 12px', background: 'linear-gradient(135deg,#166534,#16a34a)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, boxShadow: '0 2px 6px rgba(22,101,52,0.25)' },
+  empty: { color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 28 },
 
   // 실 블록
-  roomBlock:  { marginBottom: 8, border: '1px solid #c8d4e8', borderRadius: 6, overflow: 'hidden' },
-  roomHeader: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: '#1e4078', cursor: 'pointer', userSelect: 'none' },
-  collapseIcon:{ fontSize: 10, color: 'rgba(255,255,255,0.6)' },
+  roomBlock:  { marginBottom: 8, border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(30,64,120,0.06)' },
+  roomHeader: { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', background: 'linear-gradient(135deg,#1a3a6e,#2563c0)', cursor: 'pointer', userSelect: 'none' },
+  collapseIcon:{ fontSize: 10, color: 'rgba(255,255,255,0.55)' },
   roomName:   { fontSize: 13, fontWeight: 700, color: '#fff' },
-  roomSize:   { flex: 1, fontSize: 10, color: 'rgba(255,255,255,0.5)', marginLeft: 4 },
-  roomBody:   { padding: '6px 8px', background: '#f7f9fc' },
+  roomSize:   { flex: 1, fontSize: 10, color: 'rgba(255,255,255,0.45)', marginLeft: 4 },
+  roomBody:   { padding: '6px 8px', background: '#f8fafc' },
 
   // 면 블록
-  surfaceBlock:  { marginBottom: 5, border: '1px solid #e0e8f4', borderRadius: 4, overflow: 'hidden' },
-  surfaceHeader: { display: 'flex', alignItems: 'center', gap: 5, padding: '5px 8px', background: '#eef2f8', cursor: 'pointer', userSelect: 'none', borderLeft: '3px solid #4a7fc1' },
-  collapseIconSm:{ fontSize: 9, color: '#888' },
+  surfaceBlock:  { marginBottom: 4, border: '1px solid #e8edf5', borderRadius: 6, overflow: 'hidden' },
+  surfaceHeader: { display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', background: '#f1f5fb', cursor: 'pointer', userSelect: 'none', borderLeft: '3px solid #3b82f6' },
+  collapseIconSm:{ fontSize: 9, color: '#94a3b8' },
   surfaceName:   { flex: 1, fontSize: 12, fontWeight: 700, color: '#1e4078' },
-  surfaceCostHint:{ fontSize: 10, color: '#aaa' },
+  surfaceCostHint:{ fontSize: 10, color: '#94a3b8' },
 
   // 테이블 공통
   table:  { width: '100%', borderCollapse: 'collapse', background: '#fff' },
-  itemRow:    { borderBottom: '1px solid #f0f2f5' },
-  itemRowFilm:{ borderBottom: '1px solid #f0f2f5', background: '#fffaf0' },
-  secRow:     { borderBottom: '1px dashed #f0f2f5', background: '#fffdf5' },
-  tdName: { padding: '4px 8px', fontSize: 11, color: '#444', width: '52%' },
-  tdQty:  { padding: '4px 6px', fontSize: 11, textAlign: 'right', color: '#333', width: '22%' },
-  tdCost: { padding: '4px 8px', fontSize: 11, textAlign: 'right', color: '#aaa', width: '26%' },
-  spec:   { color: '#999', fontSize: 10 },
-  secName:{ padding: '3px 8px 3px 20px', fontSize: 10, color: '#888', width: '52%' },
-  lossTag:{ color: '#e06000', marginLeft: 6, fontSize: 10 },
-  filmBadge:{ fontSize: 9, background: '#1e4078', color: '#fff', borderRadius: 3, padding: '1px 4px', marginRight: 4 },
-  secCount: { color: '#999', fontSize: 10 },
-  secWarn:  { color: '#c00', fontSize: 10 },
+  itemRow:    { borderBottom: '1px solid #f1f5f9' },
+  itemRowFilm:{ borderBottom: '1px solid #f1f5f9', background: '#fffcf0' },
+  secRow:     { borderBottom: '1px dashed #f1f5f9', background: '#fffef5' },
+  tdName: { padding: '5px 8px', fontSize: 11, color: '#334155', width: '52%' },
+  tdQty:  { padding: '5px 6px', fontSize: 11, textAlign: 'right', color: '#475569', width: '22%' },
+  tdCost: { padding: '5px 8px', fontSize: 11, textAlign: 'right', color: '#94a3b8', width: '26%' },
+  spec:   { color: '#94a3b8', fontSize: 10 },
+  secName:{ padding: '3px 8px 3px 20px', fontSize: 10, color: '#94a3b8', width: '52%' },
+  lossTag:{ color: '#ea580c', marginLeft: 6, fontSize: 10 },
+  filmBadge:{ fontSize: 9, background: '#3b82f6', color: '#fff', borderRadius: 4, padding: '1px 5px', marginRight: 4 },
+  secCount: { color: '#94a3b8', fontSize: 10 },
+  secWarn:  { color: '#dc2626', fontSize: 10 },
 
   // 실 집계 블록
-  aggBlock: { marginTop: 6, border: '2px solid #c8d4e8', borderRadius: 5, overflow: 'hidden' },
-  aggTitle: { padding: '5px 10px', background: '#dde8f8', fontSize: 11, fontWeight: 700, color: '#1e4078' },
-  aggRow:   { borderBottom: '1px solid #eef2f8' },
-  aggRowHL: { borderBottom: '1px solid #e0e8f4', background: '#f5f8ff' },
-  aggFoot:  { background: '#c8d4e8' },
-  aggFootLabel: { padding: '5px 8px', fontSize: 11, fontWeight: 700, color: '#1e4078', textAlign: 'right' },
-  aggFootAmt:   { padding: '5px 8px', fontSize: 11, fontWeight: 700, color: '#1e4078', textAlign: 'right' },
+  aggBlock: { marginTop: 6, border: '1px solid #dde8f8', borderRadius: 8, overflow: 'hidden' },
+  aggTitle: { padding: '6px 10px', background: '#e8f0fc', fontSize: 11, fontWeight: 700, color: '#1e4078' },
+  aggRow:   { borderBottom: '1px solid #f1f5f9' },
+  aggRowHL: { borderBottom: '1px solid #eef2f8', background: '#f5f8ff' },
+  aggFoot:  { background: '#dde8f8' },
+  aggFootLabel: { padding: '6px 8px', fontSize: 11, fontWeight: 700, color: '#1e4078', textAlign: 'right' },
+  aggFootAmt:   { padding: '6px 8px', fontSize: 11, fontWeight: 700, color: '#1e4078', textAlign: 'right' },
 
   // 전체 집계 블록
-  grandBlock: { marginTop: 10, border: '2px solid #1e4078', borderRadius: 6, overflow: 'hidden' },
-  grandTitle: { padding: '7px 12px', background: '#1e4078', fontSize: 13, fontWeight: 700, color: '#fff' },
-  grandHead:  { background: '#2d5499' },
-  thName: { padding: '5px 8px', fontSize: 11, color: '#cde', fontWeight: 700, width: '52%' },
-  thQty:  { padding: '5px 6px', fontSize: 11, color: '#cde', fontWeight: 700, textAlign: 'right', width: '22%' },
-  thCost: { padding: '5px 8px', fontSize: 11, color: '#cde', fontWeight: 700, textAlign: 'right', width: '26%' },
-  grandFoot:      { background: '#1e4078' },
-  grandFootLabel: { padding: '7px 8px', fontSize: 12, fontWeight: 700, color: '#a8d0ff', textAlign: 'right' },
-  grandFootAmt:   { padding: '7px 8px', fontSize: 14, fontWeight: 700, color: '#a8d0ff', textAlign: 'right' },
+  grandBlock: { marginTop: 12, borderRadius: 10, overflow: 'hidden', boxShadow: '0 4px 16px rgba(30,64,120,0.2)' },
+  grandTitle: { padding: '9px 14px', background: 'linear-gradient(135deg,#1a3a6e,#2563c0)', fontSize: 13, fontWeight: 700, color: '#fff' },
+  grandHead:  { background: 'rgba(30,64,120,0.85)' },
+  thName: { padding: '6px 8px', fontSize: 11, color: '#bfdbfe', fontWeight: 700, width: '52%' },
+  thQty:  { padding: '6px 6px', fontSize: 11, color: '#bfdbfe', fontWeight: 700, textAlign: 'right', width: '22%' },
+  thCost: { padding: '6px 8px', fontSize: 11, color: '#bfdbfe', fontWeight: 700, textAlign: 'right', width: '26%' },
+  grandFoot:      { background: 'linear-gradient(135deg,#1a3a6e,#1e4078)' },
+  grandFootLabel: { padding: '9px 8px', fontSize: 12, fontWeight: 700, color: '#93c5fd', textAlign: 'right' },
+  grandFootAmt:   { padding: '9px 10px', fontSize: 15, fontWeight: 800, color: '#fff', textAlign: 'right' },
 }

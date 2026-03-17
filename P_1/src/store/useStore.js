@@ -16,6 +16,7 @@ const defaultSurface = (label, direction) => ({
   hapanId: 'hp_normal_11',   // 합판 종류 (칸막이벽용)
   insulationType: 'none',    // 흡음재 종류
   moldings: [],              // 랩핑평판 (면별)
+  customItems: [],           // 직접설정 시 수동 입력 항목
   enabled: true,
 })
 
@@ -69,6 +70,51 @@ const DEFAULT_GLOBAL_ITEMS = [
 export const useStore = create(
   persist(
     (set, get) => ({
+  // ─── 자재 관리 ──────────────────────────────────────
+  // 사용자 추가 자재 목록
+  customMaterials: [],
+  // 기본 자재 단가 덮어쓰기 { materialId: price }
+  priceOverrides: {},
+  // 시공방법별 기본 설정
+  methodDefaults: {
+    wallpaper: { seokgoType: 'sg_normal', mdfId: 'mdf_9', gakjaeRows: null, insulationType: 'none' },
+    paint:     { seokgoType: 'sg_normal', mdfId: 'mdf_9', gakjaeRows: null, insulationType: 'none' },
+    film:      { seokgoType: 'sg_normal', mdfId: 'mdf_9', gakjaeRows: null, insulationType: 'none' },
+    tile:      { seokgoType: 'sg_waterproof', gakjaeRows: null, insulationType: 'none' },
+    luba:      { seokgoType: 'sg_normal', gakjaeRows: null, insulationType: 'none' },
+    flooring:  { gakjaeRows: null, insulationType: 'none' },
+    tex:       { gakjaeRows: null },
+    wood:      { gakjaeRows: null, insulationType: 'none' },
+  },
+
+  addCustomMaterial: (mat) =>
+    set((s) => ({
+      customMaterials: [...s.customMaterials, { ...mat, id: `custom_${Date.now()}_${Math.random().toString(36).slice(2,7)}` }],
+    })),
+  updateCustomMaterial: (id, fields) =>
+    set((s) => ({
+      customMaterials: s.customMaterials.map((m) => m.id === id ? { ...m, ...fields } : m),
+    })),
+  deleteCustomMaterial: (id) =>
+    set((s) => ({
+      customMaterials: s.customMaterials.filter((m) => m.id !== id),
+    })),
+  setPriceOverride: (matId, price) =>
+    set((s) => ({ priceOverrides: { ...s.priceOverrides, [matId]: price } })),
+  clearPriceOverride: (matId) =>
+    set((s) => {
+      const next = { ...s.priceOverrides }
+      delete next[matId]
+      return { priceOverrides: next }
+    }),
+  setMethodDefault: (finishType, fields) =>
+    set((s) => ({
+      methodDefaults: {
+        ...s.methodDefaults,
+        [finishType]: { ...(s.methodDefaults[finishType] || {}), ...fields },
+      },
+    })),
+
   // 현재 프로젝트 ID (null = 미저장 새 프로젝트)
   currentProjectId: null,
 
@@ -226,6 +272,57 @@ export const useStore = create(
                 sf.id !== surfaceId ? sf : { ...sf, ...fields }
               ),
             }
+      ),
+    })),
+
+  // 직접설정 항목 관리
+  addCustomItem: (roomId, surfaceId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          surfaces: r.surfaces.map((sf) =>
+            sf.id !== surfaceId ? sf : {
+              ...sf,
+              customItems: [...(sf.customItems || []), {
+                id: `ci_${Date.now()}_${Math.random()}`,
+                name: '', spec: '', qty: 1, unit: '식', unitPrice: 0,
+              }],
+            }
+          ),
+        }
+      ),
+    })),
+
+  updateCustomItem: (roomId, surfaceId, itemId, fields) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          surfaces: r.surfaces.map((sf) =>
+            sf.id !== surfaceId ? sf : {
+              ...sf,
+              customItems: (sf.customItems || []).map((ci) =>
+                ci.id !== itemId ? ci : { ...ci, ...fields }
+              ),
+            }
+          ),
+        }
+      ),
+    })),
+
+  deleteCustomItem: (roomId, surfaceId, itemId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          surfaces: r.surfaces.map((sf) =>
+            sf.id !== surfaceId ? sf : {
+              ...sf,
+              customItems: (sf.customItems || []).filter((ci) => ci.id !== itemId),
+            }
+          ),
+        }
       ),
     })),
 

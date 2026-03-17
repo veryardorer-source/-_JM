@@ -11,11 +11,12 @@ const DOOR_TYPES = [
 ]
 
 export default function RoomCard({ room }) {
-  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor, addWall } = useStore()
+  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor, addWall, customMaterials, priceOverrides } = useStore()
   const [collapsed, setCollapsed] = useState(false)
+  const matOpts = { customMaterials, priceOverrides }
 
   const roomTotal = room.surfaces.reduce((sum, sf) => {
-    const r = calcSurfaceCost(room, sf)
+    const r = calcSurfaceCost(room, sf, matOpts)
     return sum + (r?.total || 0)
   }, 0)
 
@@ -34,13 +35,13 @@ export default function RoomCard({ room }) {
           style={styles.nameInput}
         />
         <div style={styles.dims}>
-          <DimField label="가로(mm)" value={room.widthM} onChange={v => upd({ widthM: v })} />
+          <DimField label="가로(m)" value={room.widthM} onChange={v => upd({ widthM: v })} />
           <span style={styles.x}>×</span>
-          <DimField label="세로(mm)" value={room.depthM} onChange={v => upd({ depthM: v })} />
+          <DimField label="세로(m)" value={room.depthM} onChange={v => upd({ depthM: v })} />
           <span style={styles.x}>× 마감H</span>
-          <DimField label="마감H(mm)" value={room.heightM} onChange={v => upd({ heightM: v })} />
+          <DimField label="마감H(m)" value={room.heightM} onChange={v => upd({ heightM: v })} />
           <span style={styles.x}>/ 슬라브H</span>
-          <DimField label="슬라브H(mm)" value={room.slabHeightM || 0} onChange={v => upd({ slabHeightM: v })} />
+          <DimField label="슬라브H(m)" value={room.slabHeightM || 0} onChange={v => upd({ slabHeightM: v })} />
         </div>
         <div style={styles.actions}>
           <span style={styles.total}>{roomTotal.toLocaleString()}원</span>
@@ -76,8 +77,8 @@ export default function RoomCard({ room }) {
               <div style={styles.doorTable}>
                 <div style={styles.doorTableHead}>
                   <span style={{ width: 90 }}>종류</span>
-                  <span style={{ width: 70 }}>폭(mm)</span>
-                  <span style={{ width: 70 }}>높이(mm)</span>
+                  <span style={{ width: 70 }}>폭(m)</span>
+                  <span style={{ width: 70 }}>높이(m)</span>
                   <span style={{ width: 50 }}>수량</span>
                   <span style={{ flex: 1 }}>단가(원/짝)</span>
                   <span style={{ width: 30 }}></span>
@@ -89,11 +90,11 @@ export default function RoomCard({ room }) {
                       <select value={door.type} onChange={e => updateDoor(room.id, door.id, { type: e.target.value })} style={{ ...styles.doorInput, width: 90 }}>
                         {DOOR_TYPES.map(t => <option key={t}>{t}</option>)}
                       </select>
-                      <input type="number" min="0" step="1" value={door.widthM ? Math.round(door.widthM * 1000) : ''}
-                        onChange={e => updateDoor(room.id, door.id, { widthM: Number(e.target.value) / 1000 })}
+                      <input type="number" min="0" step="0.01" value={door.widthM || ''}
+                        onChange={e => updateDoor(room.id, door.id, { widthM: Number(e.target.value) })}
                         style={{ ...styles.doorInput, width: 70 }} />
-                      <input type="number" min="0" step="1" value={door.heightM ? Math.round(door.heightM * 1000) : ''}
-                        onChange={e => updateDoor(room.id, door.id, { heightM: Number(e.target.value) / 1000 })}
+                      <input type="number" min="0" step="0.01" value={door.heightM || ''}
+                        onChange={e => updateDoor(room.id, door.id, { heightM: Number(e.target.value) })}
                         style={{ ...styles.doorInput, width: 70 }} />
                       <input type="number" min="1" value={door.qty}
                         onChange={e => updateDoor(room.id, door.id, { qty: Number(e.target.value) })}
@@ -156,10 +157,10 @@ function DimField({ label, value, onChange }) {
       <input
         type="number"
         min="0"
-        step="1"
-        value={value ? Math.round(value * 1000) : ''}
+        step="0.01"
+        value={value || ''}
         placeholder="0"
-        onChange={e => onChange(Number(e.target.value) / 1000)}
+        onChange={e => onChange(Number(e.target.value))}
         style={styles.dimInput}
       />
     </label>
@@ -169,83 +170,101 @@ function DimField({ label, value, onChange }) {
 const styles = {
   card: {
     background: '#fff',
-    borderRadius: 8,
-    marginBottom: 12,
-    boxShadow: '0 1px 6px rgba(0,0,0,0.09)',
+    borderRadius: 14,
+    marginBottom: 14,
+    boxShadow: '0 4px 20px rgba(30,64,120,0.08), 0 1px 4px rgba(30,64,120,0.06)',
     overflow: 'hidden',
+    border: '1px solid #e8edf5',
   },
   header: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '10px 14px',
-    background: '#f0f4fa',
+    padding: '12px 16px',
+    background: 'linear-gradient(135deg, #f4f7fc 0%, #eef2f9 100%)',
     borderBottom: '1px solid #dde4f0',
     flexWrap: 'wrap',
   },
   collapseBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 12, color: '#1e4078', padding: 0,
+    background: 'rgba(30,64,120,0.08)', border: 'none', cursor: 'pointer',
+    fontSize: 11, color: '#1e4078', padding: '3px 6px', borderRadius: 6,
   },
   nameInput: {
     fontSize: 14, fontWeight: 700, color: '#1e4078',
     border: 'none', background: 'transparent',
-    borderBottom: '1px solid #c8d4e8',
-    padding: '2px 4px', width: 120,
+    borderBottom: '2px solid #c8d4e8',
+    padding: '2px 4px', width: 130,
     outline: 'none',
   },
   dims: { display: 'flex', alignItems: 'center', gap: 4 },
-  x: { fontSize: 13, color: '#888' },
+  x: { fontSize: 12, color: '#94a3b8' },
   dimInput: {
-    width: 60, textAlign: 'center',
-    border: '1px solid #d0d7e3', borderRadius: 4,
-    padding: '4px 4px', fontSize: 13,
+    width: 62, textAlign: 'center',
+    border: '1px solid #d0d7e3', borderRadius: 7,
+    padding: '5px 4px', fontSize: 13,
+    background: '#fff',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
   },
   actions: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 },
-  total: { fontSize: 14, fontWeight: 700, color: '#1e4078' },
+  total: {
+    fontSize: 14, fontWeight: 700, color: '#1e4078',
+    background: 'rgba(30,64,120,0.07)',
+    padding: '4px 10px', borderRadius: 10,
+  },
   btnGray: {
-    fontSize: 11, padding: '3px 10px',
-    background: '#eef2f8', border: '1px solid #c8d4e8',
-    borderRadius: 4, cursor: 'pointer', color: '#555',
+    fontSize: 11, padding: '4px 12px',
+    background: '#fff', border: '1px solid #d0d7e3',
+    borderRadius: 8, cursor: 'pointer', color: '#64748b',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
   },
   btnRed: {
-    fontSize: 11, padding: '3px 10px',
-    background: '#fee', border: '1px solid #fcc',
-    borderRadius: 4, cursor: 'pointer', color: '#c00',
+    fontSize: 11, padding: '4px 12px',
+    background: '#fff', border: '1px solid #fca5a5',
+    borderRadius: 8, cursor: 'pointer', color: '#dc2626',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
   },
-  surfaces: { padding: '10px 12px' },
+  surfaces: { padding: '12px 14px' },
   surfaceHeader: {
-    display: 'flex', gap: 8, fontSize: 11, color: '#999',
-    fontWeight: 600, padding: '0 10px 6px',
-    borderBottom: '1px solid #eee', marginBottom: 6,
+    display: 'flex', gap: 8, fontSize: 10, color: '#94a3b8',
+    fontWeight: 700, padding: '0 10px 8px',
+    borderBottom: '1px solid #f1f5f9', marginBottom: 8,
+    textTransform: 'uppercase', letterSpacing: '0.5px',
   },
   subtotal: {
-    display: 'flex', justifyContent: 'space-between',
-    padding: '8px 10px', marginTop: 6,
-    borderTop: '2px solid #dde4f0',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '10px 12px', marginTop: 8,
+    borderTop: '1px solid #e2e8f0',
+    background: 'linear-gradient(135deg, #f8faff, #f0f5ff)',
+    borderRadius: '0 0 4px 4px',
     fontSize: 13, fontWeight: 700, color: '#1e4078',
   },
-  subtotalNum: { fontSize: 14 },
+  subtotalNum: { fontSize: 15, color: '#1e4078' },
 
-  doorSection: { marginTop: 10, borderTop: '1px dashed #dde4f0', paddingTop: 8 },
-  doorHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  doorTitle: { fontSize: 12, fontWeight: 700, color: '#555' },
+  doorSection: { marginTop: 10, borderTop: '1px solid #f1f5f9', paddingTop: 10 },
+  doorHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  doorTitle: { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' },
   addDoorBtn: {
-    fontSize: 11, padding: '3px 10px',
-    background: '#f0f4fa', border: '1px solid #c8d4e8',
-    borderRadius: 4, cursor: 'pointer', color: '#1e4078', fontWeight: 600,
+    fontSize: 11, padding: '4px 12px',
+    background: '#fff', border: '1px solid #d0d7e3',
+    borderRadius: 8, cursor: 'pointer', color: '#1e4078', fontWeight: 600,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
   },
   doorTable: { display: 'flex', flexDirection: 'column', gap: 6 },
-  doorCard: { display: 'flex', flexDirection: 'column', gap: 4, background: '#f8f9fc', borderRadius: 4, padding: '5px 4px', border: '1px solid #e8edf5' },
+  doorCard: {
+    display: 'flex', flexDirection: 'column', gap: 4,
+    background: '#f8faff', borderRadius: 8, padding: '6px 8px',
+    border: '1px solid #e2e8f0',
+  },
   doorDetail: { display: 'flex', gap: 6, alignItems: 'center', paddingLeft: 2 },
   doorTableHead: {
     display: 'flex', gap: 6, alignItems: 'center',
-    fontSize: 10, color: '#aaa', fontWeight: 600,
-    padding: '0 4px 4px',
+    fontSize: 10, color: '#94a3b8', fontWeight: 700,
+    padding: '0 4px 6px', textTransform: 'uppercase', letterSpacing: '0.5px',
   },
   doorRow: { display: 'flex', gap: 6, alignItems: 'center' },
   doorInput: {
-    border: '1px solid #d0d7e3', borderRadius: 4,
-    padding: '4px 5px', fontSize: 12, textAlign: 'center',
+    border: '1px solid #d0d7e3', borderRadius: 6,
+    padding: '5px 5px', fontSize: 12, textAlign: 'center',
+    background: '#fff',
   },
 }

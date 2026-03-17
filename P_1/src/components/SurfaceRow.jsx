@@ -6,10 +6,13 @@ import { calcFilmSections } from '../utils/calculations.js'
 import MoldingSection from './MoldingSection.jsx'
 
 export default function SurfaceRow({ room, sf }) {
-  const { updateSurface, addFilmSection, updateFilmSection, deleteFilmSection, deleteSurface } = useStore()
+  const { updateSurface, addFilmSection, updateFilmSection, deleteFilmSection, deleteSurface,
+    customMaterials, priceOverrides, methodDefaults,
+    addCustomItem, updateCustomItem, deleteCustomItem } = useStore()
 
   const upd = (fields) => updateSurface(room.id, sf.id, fields)
-  const result = calcSurfaceCost(room, sf)
+  const matOpts = { customMaterials, priceOverrides }
+  const result = calcSurfaceCost(room, sf, matOpts)
   const { areaSqm } = getSurfaceDimensions(room, sf)
 
   const isCeiling = sf.direction === 'ceiling'
@@ -52,7 +55,11 @@ export default function SurfaceRow({ room, sf }) {
 
       {/* 마감재 타입 선택 */}
       <div style={styles.cell}>
-        <select value={sf.finishType} onChange={e => upd({ finishType: e.target.value })} style={styles.select}>
+        <select value={sf.finishType} onChange={e => {
+          const ft = e.target.value
+          const defaults = (methodDefaults || {})[ft] || {}
+          upd({ finishType: ft, ...defaults })
+        }} style={styles.select}>
           {FINISH_TYPES.filter(ft => {
             if (isFloor) return ['flooring', 'tile', 'none'].includes(ft.id)
             if (isCeiling) return ['wallpaper', 'paint', 'tex', 'none'].includes(ft.id)
@@ -67,23 +74,28 @@ export default function SurfaceRow({ room, sf }) {
       <div style={styles.detailCell}>
         {sf.finishType === 'wallpaper' && (
           <select value={sf.finishMaterialId} onChange={e => upd({ finishMaterialId: e.target.value })} style={styles.select}>
-            {WALLPAPER.filter(w => isCeiling ? w.forCeiling : !w.forCeiling).map(w => (
-              <option key={w.id} value={w.id}>{w.name} ({w.pricePerRoll.toLocaleString()}원/롤)</option>
-            ))}
+            {[...WALLPAPER, ...customMaterials.filter(m => m.category === 'wallpaper')]
+              .filter(w => isCeiling ? w.forCeiling : !w.forCeiling)
+              .map(w => {
+                const price = priceOverrides[w.id] ?? w.pricePerRoll
+                return <option key={w.id} value={w.id}>{w.company ? `[${w.company}] ` : ''}{w.name} ({price.toLocaleString()}원/롤)</option>
+              })}
           </select>
         )}
         {sf.finishType === 'tile' && (
           <select value={sf.finishMaterialId} onChange={e => upd({ finishMaterialId: e.target.value })} style={styles.select}>
-            {TILE.map(t => (
-              <option key={t.id} value={t.id}>{t.name} ({t.pricePerBox.toLocaleString()}원/BOX)</option>
-            ))}
+            {[...TILE, ...customMaterials.filter(m => m.category === 'tile')].map(t => {
+              const price = priceOverrides[t.id] ?? t.pricePerBox
+              return <option key={t.id} value={t.id}>{t.company ? `[${t.company}] ` : ''}{t.name} ({price.toLocaleString()}원/BOX)</option>
+            })}
           </select>
         )}
         {sf.finishType === 'flooring' && (
           <select value={sf.finishMaterialId} onChange={e => upd({ finishMaterialId: e.target.value })} style={styles.select}>
-            {FLOORING.map(f => (
-              <option key={f.id} value={f.id}>{f.name} ({f.pricePerUnit.toLocaleString()}원/{f.unit})</option>
-            ))}
+            {[...FLOORING, ...customMaterials.filter(m => m.category === 'flooring')].map(f => {
+              const price = priceOverrides[f.id] ?? f.pricePerUnit
+              return <option key={f.id} value={f.id}>{f.company ? `[${f.company}] ` : ''}{f.name} ({price.toLocaleString()}원/{f.unit})</option>
+            })}
           </select>
         )}
         {sf.finishType === 'tex' && (
@@ -122,7 +134,9 @@ export default function SurfaceRow({ room, sf }) {
               onChange={e => upd({ seokgoType: e.target.value })}
               style={styles.selectSm}
               disabled={sf.finishType === 'tile'}>
-              {SEOKGO.map(s => <option key={s.id} value={s.id}>{s.name.replace('900×1800×', '')}</option>)}
+              {[...SEOKGO, ...customMaterials.filter(m => m.category === 'seokgo')].map(s => (
+                <option key={s.id} value={s.id}>{s.company ? `[${s.company}] ` : ''}{s.name.replace('900×1800×', '')}</option>
+              ))}
             </select>
           </label>
         )}
@@ -156,9 +170,108 @@ export default function SurfaceRow({ room, sf }) {
         )}
       </div>
     </div>
+    {sf.finishType === 'none' && (
+      <CustomItemsEditor room={room} sf={sf}
+        addCustomItem={addCustomItem}
+        updateCustomItem={updateCustomItem}
+        deleteCustomItem={deleteCustomItem} />
+    )}
     <MoldingSection room={room} sf={sf} />
     </div>
   )
+}
+
+// ── 직접설정 항목 편집기 ─────────────────────────────
+const COMMON_UNITS = ['식', '㎡', 'm', '장', 'BOX', '롤', '팩', 'EA', '단', '인']
+
+function CustomItemsEditor({ room, sf, addCustomItem, updateCustomItem, deleteCustomItem }) {
+  const items = sf.customItems || []
+  const total = items.reduce((s, ci) => s + (ci.qty || 0) * (ci.unitPrice || 0), 0)
+
+  return (
+    <div style={ciStyles.wrap}>
+      <div style={ciStyles.header}>
+        <span style={ciStyles.title}>직접 항목 입력</span>
+        <button onClick={() => addCustomItem(room.id, sf.id)} style={ciStyles.addBtn}>+ 항목 추가</button>
+      </div>
+      {items.length === 0 ? (
+        <div style={ciStyles.empty}>항목을 추가해 직접 물량을 입력하세요.</div>
+      ) : (
+        <table style={ciStyles.table}>
+          <thead>
+            <tr>
+              <th style={ciStyles.th}>자재명</th>
+              <th style={ciStyles.th}>규격</th>
+              <th style={{ ...ciStyles.th, width: 60 }}>수량</th>
+              <th style={{ ...ciStyles.th, width: 60 }}>단위</th>
+              <th style={{ ...ciStyles.th, width: 100 }}>단가(원)</th>
+              <th style={{ ...ciStyles.th, width: 90, textAlign: 'right' }}>금액</th>
+              <th style={{ ...ciStyles.th, width: 24 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(ci => (
+              <tr key={ci.id}>
+                <td style={ciStyles.td}>
+                  <input value={ci.name} placeholder="자재명"
+                    onChange={e => updateCustomItem(room.id, sf.id, ci.id, { name: e.target.value })}
+                    style={ciStyles.input} />
+                </td>
+                <td style={ciStyles.td}>
+                  <input value={ci.spec || ''} placeholder="규격"
+                    onChange={e => updateCustomItem(room.id, sf.id, ci.id, { spec: e.target.value })}
+                    style={{ ...ciStyles.input, width: 80 }} />
+                </td>
+                <td style={ciStyles.td}>
+                  <input type="number" min="0" step="0.1" value={ci.qty || ''}
+                    onChange={e => updateCustomItem(room.id, sf.id, ci.id, { qty: +e.target.value })}
+                    style={{ ...ciStyles.input, width: 55, textAlign: 'right' }} />
+                </td>
+                <td style={ciStyles.td}>
+                  <select value={ci.unit || '식'}
+                    onChange={e => updateCustomItem(room.id, sf.id, ci.id, { unit: e.target.value })}
+                    style={{ ...ciStyles.input, width: 55, padding: '3px 2px' }}>
+                    {COMMON_UNITS.map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </td>
+                <td style={ciStyles.td}>
+                  <input type="number" min="0" value={ci.unitPrice || ''}
+                    onChange={e => updateCustomItem(room.id, sf.id, ci.id, { unitPrice: +e.target.value })}
+                    style={{ ...ciStyles.input, width: 90, textAlign: 'right' }} />
+                </td>
+                <td style={{ ...ciStyles.td, textAlign: 'right', fontWeight: 600, color: '#1e4078' }}>
+                  {((ci.qty || 0) * (ci.unitPrice || 0)).toLocaleString()}원
+                </td>
+                <td style={ciStyles.td}>
+                  <button onClick={() => deleteCustomItem(room.id, sf.id, ci.id)} style={ciStyles.delBtn}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={5} style={{ ...ciStyles.td, textAlign: 'right', fontWeight: 700, color: '#555' }}>합계</td>
+              <td style={{ ...ciStyles.td, textAlign: 'right', fontWeight: 700, color: '#1e4078' }}>{total.toLocaleString()}원</td>
+              <td style={ciStyles.td}></td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+    </div>
+  )
+}
+
+const ciStyles = {
+  wrap: { margin: '0 0 0 0', padding: '8px 14px 10px', background: '#f8faff', borderTop: '1px dashed #c8d4e8' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  title: { fontSize: 12, fontWeight: 700, color: '#555' },
+  addBtn: { fontSize: 11, padding: '3px 10px', background: '#1e4078', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' },
+  empty: { fontSize: 12, color: '#aaa', padding: '6px 0' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 12 },
+  th: { padding: '4px 6px', background: '#eef1f7', borderBottom: '1px solid #dde4f0', fontWeight: 700, color: '#555', textAlign: 'left' },
+  td: { padding: '4px 4px', borderBottom: '1px solid #eef1f7', verticalAlign: 'middle' },
+  input: { padding: '3px 5px', border: '1px solid #c8d4e8', borderRadius: 3, fontSize: 12, width: '100%' },
+  delBtn: { background: 'none', border: 'none', color: '#c00', cursor: 'pointer', fontSize: 12, padding: '0 2px' },
 }
 
 // ── 필름 구간 편집기 ────────────────────────────────
@@ -384,68 +497,76 @@ const fs = {
 
 const styles = {
   surfaceBlock: {
-    background: '#fafbfd',
-    borderRadius: 4,
-    marginBottom: 6,
-    border: '1px solid #f0f2f5',
+    background: '#fff',
+    borderRadius: 8,
+    marginBottom: 5,
+    border: '1px solid #edf0f7',
+    boxShadow: '0 1px 3px rgba(30,64,120,0.04)',
   },
   row: {
     display: 'grid',
     gridTemplateColumns: '110px 140px 1fr 120px',
     gap: 8,
     alignItems: 'start',
-    padding: '8px 10px',
+    padding: '9px 12px',
   },
   labelCell: { display: 'flex', flexDirection: 'column', gap: 4 },
   checkRow: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' },
   areaBadge: {
-    fontSize: 11, color: '#888', background: '#eef2f8',
-    borderRadius: 3, padding: '1px 5px', width: 'fit-content',
+    fontSize: 10, color: '#64748b', background: '#f1f5f9',
+    borderRadius: 6, padding: '2px 6px', width: 'fit-content',
+    fontWeight: 600,
   },
   cell: {},
   detailCell: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   costCell: { textAlign: 'right', paddingTop: 4 },
-  cost: { fontSize: 13, fontWeight: 700, color: '#1e4078' },
+  cost: {
+    fontSize: 13, fontWeight: 700, color: '#1e4078',
+    background: 'rgba(30,64,120,0.06)',
+    padding: '2px 8px', borderRadius: 8, display: 'inline-block',
+  },
   select: {
-    border: '1px solid #d0d7e3', borderRadius: 4,
-    padding: '4px 6px', fontSize: 12, width: '100%',
+    border: '1px solid #d0d7e3', borderRadius: 6,
+    padding: '5px 6px', fontSize: 12, width: '100%',
+    background: '#fff',
   },
   selectSm: {
-    border: '1px solid #d0d7e3', borderRadius: 4,
-    padding: '3px 5px', fontSize: 11,
+    border: '1px solid #d0d7e3', borderRadius: 5,
+    padding: '3px 5px', fontSize: 11, background: '#fff',
   },
   inputSm: {
-    border: '1px solid #d0d7e3', borderRadius: 4,
-    padding: '3px 5px', fontSize: 11, width: 80,
+    border: '1px solid #d0d7e3', borderRadius: 5,
+    padding: '3px 5px', fontSize: 11, width: 80, background: '#fff',
   },
   inputTiny: {
-    border: '1px solid #d0d7e3', borderRadius: 4,
-    padding: '3px 5px', fontSize: 11, width: 60,
+    border: '1px solid #d0d7e3', borderRadius: 5,
+    padding: '3px 5px', fontSize: 11, width: 60, background: '#fff',
   },
-  inlineLabel: { display: 'flex', flexDirection: 'column', fontSize: 10, color: '#888', gap: 2 },
+  inlineLabel: { display: 'flex', flexDirection: 'column', fontSize: 10, color: '#64748b', gap: 2, fontWeight: 600 },
   filmOptions: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   openingCell: { position: 'relative' },
   openingPanel: {
-    position: 'absolute', top: 24, left: 0, zIndex: 10,
-    background: '#fff', border: '1px solid #d0d7e3',
-    borderRadius: 6, padding: 10, minWidth: 220,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    position: 'absolute', top: 26, left: 0, zIndex: 10,
+    background: '#fff', border: '1px solid #e2e8f0',
+    borderRadius: 10, padding: 12, minWidth: 220,
+    boxShadow: '0 8px 24px rgba(30,64,120,0.14)',
   },
   openingItem: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    fontSize: 12, padding: '3px 0', borderBottom: '1px solid #f0f2f5',
+    fontSize: 12, padding: '4px 0', borderBottom: '1px solid #f1f5f9',
   },
   openingAdd: { display: 'flex', alignItems: 'center', gap: 4, marginTop: 8 },
   btnSmall: {
-    fontSize: 11, padding: '3px 8px', background: '#eef2f8',
-    border: '1px solid #c8d4e8', borderRadius: 4, cursor: 'pointer', color: '#1e4078',
+    fontSize: 11, padding: '4px 10px', background: '#f1f5f9',
+    border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', color: '#1e4078',
   },
   btnDel: {
-    fontSize: 10, padding: '1px 5px', background: '#fee', border: '1px solid #fcc',
-    borderRadius: 3, cursor: 'pointer', color: '#c00',
+    fontSize: 10, padding: '2px 6px', background: '#fff', border: '1px solid #fca5a5',
+    borderRadius: 5, cursor: 'pointer', color: '#dc2626',
   },
   btnAdd: {
-    fontSize: 11, padding: '3px 8px', background: '#1e4078',
-    border: 'none', borderRadius: 4, cursor: 'pointer', color: '#fff',
+    fontSize: 11, padding: '4px 10px', background: '#1e4078',
+    border: 'none', borderRadius: 6, cursor: 'pointer', color: '#fff',
+    fontWeight: 600,
   },
 }

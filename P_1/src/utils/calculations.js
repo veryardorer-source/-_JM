@@ -64,20 +64,16 @@ export function calcCeilingGakjae(widthMm, depthMm, studHeightM, roomHeightMm) {
   const count = Math.ceil(totalMm / selectedGak.length)
   const breakdown = [{ length: selectedGak.length, count }]
 
-  // 지지 합판 계산
-  // 주 각재와 부 각재 교차점에 합판 지지대를 넣음
-  // 합판 1장(1220×2440)을 천장 높이에 맞게 재단
-  // 지지대 높이 = room.heightM * 1000 (천장 높이 기준)
-  // 지지대 폭   = 200mm (고정)
-  const pieceHeightMm = Math.max(100, Math.round(heightM * 1000))
-  const pieceWidthMm  = 200
-  const piecesPerCol  = Math.floor(2440 / pieceHeightMm)
-  const piecesPerRow  = Math.floor(1220 / pieceWidthMm)
+  // 지지 합판: 각재와 각재 사이에 끼워 넣는 지지대
+  // 조각 높이 = 스터드 높이(슬라브-마감 간격), 폭 = 200mm 고정
+  const pieceHeightMm  = Math.max(100, Math.round(heightM * 1000))
+  const pieceWidthMm   = 200
+  const piecesPerCol   = Math.floor(2440 / pieceHeightMm)
+  const piecesPerRow   = Math.floor(1220 / pieceWidthMm)
   const piecesPerSheet = Math.max(1, piecesPerCol * piecesPerRow)
-
   // 필요 지지대 수 = 주 각재 × 부 각재 교차점
-  const supportCount  = mainCount * subCount
-  const hapanSheets   = Math.ceil(supportCount / piecesPerSheet)
+  const supportCount   = mainCount * subCount
+  const hapanSheets    = Math.ceil(supportCount / piecesPerSheet)
 
   return {
     totalM: Math.round(totalMm / 1000 * 100) / 100,
