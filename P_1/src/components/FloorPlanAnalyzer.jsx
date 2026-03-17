@@ -8,7 +8,7 @@ const LLM_MUX_URL = 'http://localhost:8317'
 const LLM_MUX_MODEL_STORAGE = 'ip_llmmux_model'
 const DEFAULT_LLM_MUX_MODEL = 'anthropic/claude-3-5-sonnet-20241022'
 
-export default function FloorPlanAnalyzer() {
+export default function FloorPlanAnalyzer({ onImported }) {
   const { addRoomWithData } = useStore()
 
   const [mode, setMode] = useState(() => localStorage.getItem(API_MODE_STORAGE) || 'direct')
@@ -101,7 +101,8 @@ export default function FloorPlanAnalyzer() {
       })
     })
     setImported(true)
-    alert(`${selected.length}개 실이 견적에 추가되었습니다. [견적 작성] 탭에서 확인하세요.`)
+    if (onImported) onImported()
+    else alert(`${selected.length}개 실이 견적에 추가되었습니다.`)
   }
 
   function toBase64(f) {

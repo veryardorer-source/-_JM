@@ -74,7 +74,7 @@ export default function App() {
         </div>
       ) : tab === 'floorplan' ? (
         <div style={styles.floorplanWrap}>
-          <FloorPlanAnalyzer />
+          <FloorPlanAnalyzer onImported={() => setTab('estimate')} />
         </div>
       ) : (
         <div style={styles.floorplanWrap}>
