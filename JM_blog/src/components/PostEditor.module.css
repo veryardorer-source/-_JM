@@ -1,0 +1,220 @@
+.container {
+  padding: 32px;
+  max-width: 900px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btnSecondary {
+  background: white;
+  color: #555;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnSecondary:hover { background: #f5f5f5; }
+
+.btnPost {
+  background: #03c75a;
+  color: white;
+  padding: 9px 22px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btnPost:hover:not(:disabled) { background: #02a84a; }
+.btnPost:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.status {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.status.success { background: #e8f9f0; color: #0a8043; border: 1px solid #b2dfdb; }
+.status.error { background: #fff0f0; color: #c62828; border: 1px solid #ffcdd2; }
+.status.info { background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; }
+
+.editorCard {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.titleInput {
+  width: 100%;
+  padding: 20px 24px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  outline: none;
+  background: white;
+}
+.titleInput::placeholder { color: #bbb; font-weight: 400; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.toolBtn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #444;
+  transition: all 0.1s;
+  padding: 0;
+}
+.toolBtn:hover { background: #e8e8e8; }
+
+.select {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+  color: #444;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: #ddd;
+  margin: 0 4px;
+}
+
+.colorPicker {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 2px;
+  cursor: pointer;
+  background: none;
+}
+
+.editor {
+  min-height: 480px;
+  padding: 24px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #1a1a1a;
+  outline: none;
+  background: white;
+}
+
+.editor:empty:before {
+  content: attr(data-placeholder);
+  color: #ccc;
+  pointer-events: none;
+}
+
+.editor img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+.editor h1 { font-size: 28px; font-weight: 700; margin: 16px 0 8px; }
+.editor h2 { font-size: 22px; font-weight: 700; margin: 14px 0 8px; }
+.editor h3 { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
+.editor ul, .editor ol { padding-left: 24px; margin: 8px 0; }
+.editor li { margin: 4px 0; }
+
+.meta {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-top: 16px;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.metaField {
+  flex: 1;
+  min-width: 200px;
+}
+
+.metaField label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 8px;
+}
+
+.metaField input {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+}
+.metaField input:focus { border-color: #03c75a; }
+
+.toggleGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleBtn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.15s;
+}
+.toggleBtn.active {
+  background: #e8f9f0;
+  border-color: #03c75a;
+  color: #03c75a;
+  font-weight: 700;
+}
