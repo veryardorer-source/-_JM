@@ -576,7 +576,8 @@ function buildTradeGroupsLegacy(roomDataList, globalItems) {
     if (/데코타일|장판|우드타일|후로링/.test(name))                  return '수장작업'
     if (/루바|텍스/.test(name))                                     return '수장작업'
     if (/조명|라인조명|면조명|펜던트|벽등|레일/.test(name))         return '전기통신작업'
-    if (/도어|방문|ABS|강화|양문|현관|미서기|폴딩|중문|창호|유리/.test(name)) return '창호작업'
+    if (/ABS/i.test(name))                                               return '목작업'
+    if (/도어|방문|강화|양문|현관|미서기|폴딩|중문|창호|유리/.test(name))  return '창호작업'
     if (/환풍기|배관|배수|급수|설비/.test(name))                    return '설비작업'
     if (/가구/.test(name))                                          return '가구'
     return '기타'
@@ -643,6 +644,25 @@ function buildTradeGroupsLegacy(roomDataList, globalItems) {
       labU: item.qty > 0 && item.labT ? Math.round(item.labT / item.qty) : (item.labU || 0),
       expU: item.qty > 0 && item.expT ? Math.round(item.expT / item.qty) : (item.expU || 0),
     }))
+  }
+
+  // 공종별 노무비 자동 추가 (항목이 있고 노무비 없는 경우)
+  const LEGACY_LABOR = {
+    '가설작업': '가설 노무비',
+    '설비작업': '설비 노무비',
+    '목작업':   '목공 노무비',
+    '소방작업': '소방 노무비',
+    '수장작업': '수장 노무비',
+    '창호작업': '창호 설치 노무비',
+    '가구':     '가구 설치 노무비',
+  }
+  for (const trade of LEGACY_TRADE_ORDER) {
+    const items = groups[trade] || []
+    if (items.length === 0) continue
+    const laborName = LEGACY_LABOR[trade]
+    if (!laborName) continue
+    if (items.some(it => it.name.includes('노무비'))) continue
+    groups[trade].push({ name: laborName, spec: '', unit: '식', qty: 1, matU: 0, matT: 0, labU: 0, labT: 0, expU: 0, expT: 0 })
   }
 
   return { groups, LEGACY_TRADE_ORDER }
