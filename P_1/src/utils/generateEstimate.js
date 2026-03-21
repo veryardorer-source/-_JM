@@ -66,6 +66,11 @@ const LABOR_TEMPLATES = {
   ],
 }
 
+function getDoorTrade(doorType) {
+  if (/ABS/i.test(doorType)) return '목공사'
+  return '도어/창호공사'
+}
+
 export function generateEstimateItems(rooms, globalItems, matOpts = {}, prevItems = []) {
   // Price carry-over map: "trade|||name|||unit" → {matUnitPrice, labUnitPrice, expUnitPrice}
   const priceMap = {}
@@ -153,8 +158,9 @@ export function generateEstimateItems(rooms, globalItems, matOpts = {}, prevItem
     }
   }
   const doorEntries = Object.entries(doorMap)
-  doorEntries.forEach(([type, qty]) => result.push(carryPrices(blankItem('도어/창호공사', type, '', 'EA', qty))))
-  if (doorEntries.length > 0) result.push(carryPrices(blankItem('도어/창호공사', '도어 설치 노무비', '', '식', 1)))
+  doorEntries.forEach(([type, qty]) => result.push(carryPrices(blankItem(getDoorTrade(type), type, '', 'EA', qty))))
+  const hasCchanghoDoor = doorEntries.some(([type]) => getDoorTrade(type) === '도어/창호공사')
+  if (hasCchanghoDoor) result.push(carryPrices(blankItem('도어/창호공사', '도어 설치 노무비', '', '식', 1)))
 
   // Lightings
   const lightMap = {}
@@ -180,6 +186,25 @@ export function generateEstimateItems(rooms, globalItems, matOpts = {}, prevItem
     }
   }
   Object.values(moldMap).forEach(m => result.push(carryPrices(blankItem('수장공사', m.name, '', m.unit, Math.round(m.qty)))))
+
+  // Add 노무비 for fixed trades (if that trade has any item and no 노무비 yet)
+  const FIXED_TRADE_LABOR = [
+    { trade: '가설작업', name: '가설 노무비' },
+    { trade: '목공사', name: '목공 노무비' },
+    { trade: '수장공사', name: '수장 노무비' },
+    { trade: '도어/창호공사', name: '도어 설치 노무비' },
+    { trade: '설비작업', name: '설비 노무비' },
+    { trade: '전기통신작업', name: '전기통신 노무비' },
+    { trade: '소방작업', name: '소방 노무비' },
+    { trade: '조명공사', name: '조명 설치 노무비' },
+    { trade: '붙박이가구', name: '가구 설치 노무비' },
+  ]
+  const tradesInResult = new Set(result.map(it => it.trade))
+  for (const { trade, name } of FIXED_TRADE_LABOR) {
+    if (tradesInResult.has(trade) && !result.some(it => it.trade === trade && it.name === name)) {
+      result.push(carryPrices(blankItem(trade, name, '', '식', 1)))
+    }
+  }
 
   // Global items
   for (const gi of (globalItems || [])) {
