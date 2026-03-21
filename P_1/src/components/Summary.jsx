@@ -6,7 +6,7 @@ import { generatePDF } from '../utils/pdfGenerator.js'
 import { calcMoldingLengthM, calcMoldingEA } from '../utils/molding.js'
 import { calcLinearCombo } from '../utils/calculations.js'
 import { WRAPPING_BOARD_LENGTH_M } from '../data/materials.js'
-import { exportToExcel } from '../utils/excelExport.js'
+import { exportToExcelLegacy as exportToExcel } from '../utils/excelExport.js'
 
 const DIR_LABEL = {
   wallA: '벽A', wallB: '벽B', wallC: '벽C', wallD: '벽D',
@@ -122,15 +122,9 @@ export default function Summary() {
 
     const allItems = [...surfaceData.flatMap(d => d.items), ...doorItems, ...lightingItems, ...moldingItems, ...partitionData.flatMap(pd => pd.items)]
     const roomAggregate = aggregateItems(allItems)
-    const laborTotal = room.surfaces.reduce((s, sf) => {
-      return s + (sf.laborItems || []).reduce((ss, li) => {
-        return ss + ((li.matUnitPrice || 0) + (li.labUnitPrice || 0) + (li.expUnitPrice || 0)) * (li.qty || 0)
-      }, 0)
-    }, 0)
     const roomTotal = surfaceData.reduce((s, d) => s + d.total, 0)
       + doorItems.reduce((s, d) => s + d.cost, 0)
       + partitionData.reduce((s, pd) => s + pd.total, 0)
-      + laborTotal
 
     return { room, surfaceData, doorItems, lightingItems, moldingItems, partitionData, roomAggregate, roomTotal }
   }).filter(r => r.surfaceData.length > 0 || r.doorItems.length > 0 || r.lightingItems.length > 0 || r.moldingItems.length > 0 || r.partitionData.length > 0)

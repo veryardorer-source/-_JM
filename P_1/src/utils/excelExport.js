@@ -591,13 +591,6 @@ function buildTradeGroupsLegacy(roomDataList, globalItems) {
     ;(rd.moldingItems || []).forEach(item => {
       groups['목작업'].push({ name: item.name, spec: '', unit: 'EA', qty: item.qty || 0, matU: 0, matT: 0, remark: `${roomLabel} ${(item.lengthM || 0).toFixed(2)}m` })
     })
-    ;(rd.room?.surfaces || []).forEach(sf => {
-      ;(sf.laborItems || []).forEach(li => {
-        if (!li.name) return
-        const qty = li.qty || 0
-        groups['수장작업'].push({ name: li.name, spec: '', unit: li.unit || '식', qty, matU: li.matUnitPrice || 0, matT: (li.matUnitPrice || 0) * qty, labU: li.labUnitPrice || 0, labT: (li.labUnitPrice || 0) * qty, expU: li.expUnitPrice || 0, expT: (li.expUnitPrice || 0) * qty, remark: `${roomLabel} ${sf.label || sf.direction}`, isGlobal: true })
-      })
-    })
   })
   ;(globalItems || []).forEach(gi => {
     if (!gi.enabled || !gi.name) return
