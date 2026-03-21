@@ -599,6 +599,28 @@ function buildTradeGroupsLegacy(roomDataList, globalItems) {
     const qty = gi.qty || 0
     groups[trade].push({ name: gi.name, spec: gi.spec || '', unit: gi.unit, qty, matU: gi.matUnitPrice || 0, matT: (gi.matUnitPrice || 0) * qty, labU: gi.labUnitPrice || 0, labT: (gi.labUnitPrice || 0) * qty, expU: gi.expUnitPrice || 0, expT: (gi.expUnitPrice || 0) * qty, remark: gi.remark || '', isGlobal: true })
   })
+  // 같은 품명+단위 항목 통합 (면별로 나뉜 것을 한 줄로)
+  for (const trade of Object.keys(groups)) {
+    const agg = {}
+    groups[trade].forEach(item => {
+      const key = `${item.name}|||${item.unit}`
+      if (!agg[key]) {
+        agg[key] = { ...item, qty: 0, matT: 0, labT: 0, expT: 0 }
+      }
+      agg[key].qty = Math.round((agg[key].qty + (item.qty || 0)) * 1000) / 1000
+      agg[key].matT += item.matT || 0
+      agg[key].labT += item.labT || 0
+      agg[key].expT += item.expT || 0
+    })
+    // 집계 후 단가 재계산 (금액 / 수량)
+    groups[trade] = Object.values(agg).map(item => ({
+      ...item,
+      matU: item.qty > 0 ? Math.round(item.matT / item.qty) : (item.matU || 0),
+      labU: item.qty > 0 && item.labT ? Math.round(item.labT / item.qty) : (item.labU || 0),
+      expU: item.qty > 0 && item.expT ? Math.round(item.expT / item.qty) : (item.expU || 0),
+    }))
+  }
+
   return { groups, LEGACY_TRADE_ORDER }
 }
 
@@ -674,25 +696,6 @@ export async function exportToExcelLegacy(project, roomDataList, grandAggregate,
       ws.mergeCells(r,1,r,5); txtCell(ws,r,1,'[합  계]',{fill:CLR.grandBg,bold:true,align:'center'}); for(let c=2;c<=5;c++) txtCell(ws,r,c,'',{fill:CLR.grandBg}); ;['F','G','H','I','J','K','L','M'].forEach((col,i)=>{ fmtCell(ws,r,6+i,mk(col),{fill:CLR.grandBg,bold:true}) }); txtCell(ws,r,14,'',{fill:CLR.grandBg})
     }
 
-    // 시트4: 자재집계
-    {
-      const ws = wb.addWorksheet('자재집계')
-      ws.properties.defaultRowHeight=16
-      ws.columns=[{width:28},{width:20},{width:7},{width:12},{width:14},{width:14},{width:22}]
-      let r=1
-      ws.mergeCells(r,1,r,7); const t=ws.getCell(r,1); t.value='자  재  집  계  표'; t.font=mkFont(true,16); t.alignment={horizontal:'center',vertical:'middle'}; ws.getRow(r).height=28; r++; r++
-      const hdrs=['자재명','규격/구분','단위','수량','단가','금액','비고(공간)']
-      hdrs.forEach((h,i)=>{ const cell=ws.getCell(r,i+1); cell.value=h; styleCell(cell,{fill:CLR.headerBg,fgColor:CLR.headerFg,bold:true,align:'center'}) }); ws.getRow(r).height=20; r++
-      const matMap=new Map()
-      const tradeOrd={}; LEGACY_TRADE_ORDER.forEach((t,i)=>{ tradeOrd[t]=i })
-      LEGACY_TRADE_ORDER.forEach(trade=>{ ;(tradeGroups[trade]||[]).forEach(item=>{ const key=`${item.name}||${item.unit}`; if(!matMap.has(key)) matMap.set(key,{name:item.name,unit:item.unit,trade,totalQty:0,totalCost:0,unitPrice:item.matU||0,remarks:new Set()}); const entry=matMap.get(key); entry.totalQty=Math.round((entry.totalQty+(item.qty||0))*1000)/1000; entry.totalCost+=item.matT||0; if(item.remark) entry.remarks.add(item.remark) }) })
-      const sorted=[...matMap.values()].sort((a,b)=>{ const td=(tradeOrd[a.trade]??99)-(tradeOrd[b.trade]??99); return td!==0?td:a.name.localeCompare(b.name,'ko') })
-      let currentTrade=null; const tradeSubtotalRows={}; const tradeItemRows={}
-      sorted.forEach(entry=>{ if(entry.trade!==currentTrade){ currentTrade=entry.trade; tradeItemRows[currentTrade]=[]; txtCell(ws,r,1,currentTrade,{fill:CLR.tradeBg,bold:true}); for(let c=2;c<=7;c++) txtCell(ws,r,c,'',{fill:CLR.tradeBg}); r++ }; tradeItemRows[currentTrade].push(r); txtCell(ws,r,1,entry.name); txtCell(ws,r,2,entry.unit==='단'?'각재(단)':entry.unit==='롤'?'도배지(롤)':'',{align:'center'}); txtCell(ws,r,3,entry.unit,{align:'center'}); numCell(ws,r,4,Math.round(entry.totalQty*100)/100,{align:'right'}); numCell(ws,r,5,entry.unitPrice); numCell(ws,r,6,Math.round(entry.totalCost)); txtCell(ws,r,7,[...entry.remarks].join(', ')); r++ })
-      r++
-      for(const [trade,itemRowNums] of Object.entries(tradeItemRows)){ if(itemRowNums.length===0) continue; tradeSubtotalRows[trade]=r; const costF=`SUM(${itemRowNums.map(n=>`F${n}`).join(',')})`; ws.mergeCells(r,1,r,3); txtCell(ws,r,1,`[${trade} 소계]`,{fill:CLR.subtotalBg,bold:true,align:'center'}); for(let c=2;c<=3;c++) txtCell(ws,r,c,'',{fill:CLR.subtotalBg}); txtCell(ws,r,4,'',{fill:CLR.subtotalBg}); txtCell(ws,r,5,'',{fill:CLR.subtotalBg}); fmtCell(ws,r,6,costF,{fill:CLR.subtotalBg}); txtCell(ws,r,7,'',{fill:CLR.subtotalBg}); r++ }
-      r++; const subRs=Object.values(tradeSubtotalRows); ws.mergeCells(r,1,r,5); txtCell(ws,r,1,'[자  재  합  계]',{fill:CLR.grandBg,bold:true,align:'center'}); for(let c=2;c<=5;c++) txtCell(ws,r,c,'',{fill:CLR.grandBg}); if(subRs.length>0) fmtCell(ws,r,6,`SUM(${subRs.map(sr=>`F${sr}`).join(',')})`,{fill:CLR.grandBg,bold:true}); txtCell(ws,r,7,'',{fill:CLR.grandBg}); ws.getRow(r).height=20
-    }
 
     const siteName = project.siteName || '견적'
     const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'')

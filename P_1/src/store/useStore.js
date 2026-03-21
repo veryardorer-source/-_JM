@@ -62,6 +62,10 @@ const DEFAULT_GLOBAL_ITEMS = [
   { id: 'gi_elec_4',   trade: '전기통신작업', name: '분전함',           spec: '',   unit: '식',  qty: 0, matUnitPrice: 0,    labUnitPrice: 0,    expUnitPrice: 0,   enabled: false, remark: '' },
   { id: 'gi_elec_5',   trade: '전기통신작업', name: '부자재',           spec: '',   unit: '식',  qty: 1, matUnitPrice: 0,    labUnitPrice: 0,    expUnitPrice: 0,   enabled: true, remark: '' },
   { id: 'gi_elec_6',   trade: '전기통신작업', name: '노무비',           spec: '인', unit: '인',  qty: 0, matUnitPrice: 0,    labUnitPrice: 280000, expUnitPrice: 20000, enabled: true, remark: '' },
+  // 붙박이가구
+  { id: 'gi_furn_1',  trade: '붙박이가구', name: '붙박이장',    spec: '', unit: '식', qty: 1, matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 0, enabled: false, remark: '' },
+  { id: 'gi_furn_2',  trade: '붙박이가구', name: '주방가구',    spec: '', unit: '식', qty: 1, matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 0, enabled: false, remark: '' },
+  { id: 'gi_furn_3',  trade: '붙박이가구', name: '신발장',      spec: '', unit: '식', qty: 1, matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 0, enabled: false, remark: '' },
   // 소방작업
   { id: 'gi_fire_1',   trade: '소방작업', name: '감지기',              spec: '',   unit: 'EA',  qty: 0, matUnitPrice: 6000, labUnitPrice: 0,    expUnitPrice: 0,   enabled: false, remark: '' },
   { id: 'gi_fire_2',   trade: '소방작업', name: 'S/P 헤드',            spec: '',   unit: 'EA',  qty: 0, matUnitPrice: 6500, labUnitPrice: 0,    expUnitPrice: 0,   enabled: false, remark: '' },
