@@ -7,10 +7,11 @@ import GlobalItems from './components/GlobalItems.jsx'
 import ProjectManager from './components/ProjectManager.jsx'
 import FloorPlanAnalyzer from './components/FloorPlanAnalyzer.jsx'
 import MaterialManager from './components/MaterialManager.jsx'
+import EstimateSheet from './components/EstimateSheet.jsx'
 
 export default function App() {
   const { rooms, addRoom, loadSampleData } = useStore()
-  const [tab, setTab] = useState('estimate') // 'estimate' | 'floorplan' | 'materials'
+  const [tab, setTab] = useState('estimate') // 'estimate' | 'sheet' | 'floorplan' | 'materials'
 
   return (
     <div style={styles.wrap}>
@@ -29,6 +30,10 @@ export default function App() {
               onClick={() => setTab('estimate')}
               style={tab === 'estimate' ? { ...styles.tab, ...styles.tabActive } : styles.tab}
             >견적 작성</button>
+            <button
+              onClick={() => setTab('sheet')}
+              style={tab === 'sheet' ? { ...styles.tab, ...styles.tabActive } : styles.tab}
+            >견적서</button>
             <button
               onClick={() => setTab('floorplan')}
               style={tab === 'floorplan' ? { ...styles.tab, ...styles.tabActive } : styles.tab}
@@ -71,6 +76,10 @@ export default function App() {
           <aside style={styles.aside}>
             <Summary />
           </aside>
+        </div>
+      ) : tab === 'sheet' ? (
+        <div style={styles.floorplanWrap}>
+          <EstimateSheet />
         </div>
       ) : tab === 'floorplan' ? (
         <div style={styles.floorplanWrap}>

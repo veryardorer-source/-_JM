@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { saveProject, loadProject, generateProjectId } from '../utils/projectStorage.js'
+import { generateEstimateItems as _generateEstimateItems } from '../utils/generateEstimate.js'
 
 const defaultSurface = (label, direction) => ({
   id: `${direction}_${Date.now()}_${Math.random()}`,
@@ -667,6 +668,35 @@ export const useStore = create(
       ),
     })),
 
+  // ─── 견적서 상태 ─────────────────────────────────────────────
+  estimateItems: [],
+  discount: 0,
+
+  generateEstimateItems: (matOpts = {}) => {
+    const s = get()
+    const newItems = _generateEstimateItems(s.rooms, s.globalItems, matOpts, s.estimateItems)
+    set({ estimateItems: newItems })
+  },
+
+  updateEstimateItem: (id, fields) =>
+    set((s) => ({
+      estimateItems: s.estimateItems.map(it => it.id === id ? { ...it, ...fields } : it),
+    })),
+
+  addEstimateItemToTrade: (trade) =>
+    set((s) => ({
+      estimateItems: [...s.estimateItems, {
+        id: `ei_manual_${Date.now()}`,
+        trade, name: '', spec: '', unit: '식', qty: 1,
+        matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 0, autoGen: false,
+      }],
+    })),
+
+  deleteEstimateItem: (id) =>
+    set((s) => ({ estimateItems: s.estimateItems.filter(it => it.id !== id) })),
+
+  setDiscount: (v) => set({ discount: v }),
+
   // 테스트 데이터 불러오기
   loadSampleData: () => set(() => ({
     project: {
@@ -728,7 +758,7 @@ export const useStore = create(
   }),
   {
     name: 'interior-estimate-store',
-    version: 3,
+    version: 4,
     migrate: (state, version) => {
       if (version < 2) {
         const dirMap   = { wallN: 'wallA', wallS: 'wallB', wallE: 'wallC', wallW: 'wallD' }
@@ -753,6 +783,11 @@ export const useStore = create(
             moldings: sf.moldings ?? [],
           })),
         }))
+      }
+      if (version < 4) {
+        // 견적서 상태 초기화
+        state.estimateItems = state.estimateItems ?? []
+        state.discount = state.discount ?? 0
       }
       return state
     },
