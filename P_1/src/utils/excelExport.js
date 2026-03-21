@@ -92,6 +92,30 @@ function buildTradeGroups(roomDataList, globalItems) {
         remark: `${roomLabel} ${(item.lengthM || 0).toFixed(2)}m`,
       })
     })
+
+    // 면별 노무비/부자재 항목
+    ;(rd.room?.surfaces || []).forEach(sf => {
+      ;(sf.laborItems || []).forEach(li => {
+        if (!li.name) return
+        const trade = '수장작업'
+        if (!groups[trade]) groups[trade] = []
+        const qty = li.qty || 0
+        groups[trade].push({
+          name: li.name,
+          spec: '',
+          unit: li.unit || '식',
+          qty,
+          matU: li.matUnitPrice || 0,
+          matT: (li.matUnitPrice || 0) * qty,
+          labU: li.labUnitPrice || 0,
+          labT: (li.labUnitPrice || 0) * qty,
+          expU: li.expUnitPrice || 0,
+          expT: (li.expUnitPrice || 0) * qty,
+          remark: `${roomLabel} ${sf.label || sf.direction}`,
+          isGlobal: true,
+        })
+      })
+    })
   })
 
   // 공통 항목 (글로벌)
@@ -418,48 +442,17 @@ function makeDetailSheet(wb, tradeGroups) {
       numCell(ws, r, 6, item.matU || 0)
       numCell(ws, r, 7, item.matT || 0)
       // 노무비
-      if (item.isGlobal && (item.labU || 0) > 0) {
-        numCell(ws, r, 8, item.labU)
-        numCell(ws, r, 9, item.labT)
-      } else {
-        numCell(ws, r, 8, 0)
-        numCell(ws, r, 9, 0)
-      }
+      numCell(ws, r, 8, item.labU || 0)
+      numCell(ws, r, 9, item.labT || 0)
       // 경비
-      if (item.isGlobal && (item.expU || 0) > 0) {
-        numCell(ws, r, 10, item.expU)
-        numCell(ws, r, 11, item.expT)
-      } else {
-        numCell(ws, r, 10, 0)
-        numCell(ws, r, 11, 0)
-      }
+      numCell(ws, r, 10, item.expU || 0)
+      numCell(ws, r, 11, item.expT || 0)
       // 합계 수식
       fmtCell(ws, r, 12, `F${r}+H${r}+J${r}`)
       fmtCell(ws, r, 13, `G${r}+I${r}+K${r}`)
       txtCell(ws, r, 14, item.remark || '')
       r++
     })
-
-    // 노무비 입력행 (자재 항목 있을 때)
-    const hasManual = items.some(it => !it.isGlobal)
-    if (hasManual) {
-      itemRows.push(r)
-      txtCell(ws, r, 1, '')
-      txtCell(ws, r, 2, '노무비', { fill: CLR.inputBg, bold: true })
-      txtCell(ws, r, 3, '', { fill: CLR.inputBg })
-      txtCell(ws, r, 4, '인', { fill: CLR.inputBg, align: 'center' })
-      inputCell(ws, r, 5)
-      numCell(ws, r, 6, 0)
-      numCell(ws, r, 7, 0)
-      inputCell(ws, r, 8)
-      fmtCell(ws, r, 9, `H${r}*E${r}`)
-      inputCell(ws, r, 10)
-      fmtCell(ws, r, 11, `J${r}*E${r}`)
-      fmtCell(ws, r, 12, `H${r}+J${r}`)
-      fmtCell(ws, r, 13, `I${r}+K${r}`)
-      txtCell(ws, r, 14, '')
-      r++
-    }
 
     // 소계 행
     const matF = `SUM(${itemRows.map(ir=>`G${ir}`).join(',')})`

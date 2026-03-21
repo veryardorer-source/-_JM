@@ -615,6 +615,58 @@ export const useStore = create(
       ),
     })),
 
+  // 면별 노무비/부자재 항목
+  addSurfaceLaborItem: (roomId, sfId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          surfaces: r.surfaces.map((sf) =>
+            sf.id !== sfId ? sf : {
+              ...sf,
+              laborItems: [...(sf.laborItems || []), {
+                id: `li_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+                name: '', unit: '인', qty: 1,
+                matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 0,
+              }],
+            }
+          ),
+        }
+      ),
+    })),
+
+  updateSurfaceLaborItem: (roomId, sfId, itemId, fields) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          surfaces: r.surfaces.map((sf) =>
+            sf.id !== sfId ? sf : {
+              ...sf,
+              laborItems: (sf.laborItems || []).map((li) =>
+                li.id !== itemId ? li : { ...li, ...fields }
+              ),
+            }
+          ),
+        }
+      ),
+    })),
+
+  deleteSurfaceLaborItem: (roomId, sfId, itemId) =>
+    set((s) => ({
+      rooms: s.rooms.map((r) =>
+        r.id !== roomId ? r : {
+          ...r,
+          surfaces: r.surfaces.map((sf) =>
+            sf.id !== sfId ? sf : {
+              ...sf,
+              laborItems: (sf.laborItems || []).filter((li) => li.id !== itemId),
+            }
+          ),
+        }
+      ),
+    })),
+
   // 테스트 데이터 불러오기
   loadSampleData: () => set(() => ({
     project: {

@@ -5,6 +5,45 @@ import { calcSurfaceCost, getSurfaceDimensions } from '../utils/surfaceCost.js'
 import { calcFilmSections } from '../utils/calculations.js'
 import MoldingSection from './MoldingSection.jsx'
 
+// 마감재 종류별 기본 노무비/부자재 세트
+const LABOR_DEFAULTS = {
+  wallpaper: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 300000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 280000, expUnitPrice: 20000 },
+  ],
+  paint: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 300000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 300000, expUnitPrice: 20000 },
+  ],
+  flooring: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 100000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '자재소운반', unit: '식', qty: 1, matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 100000 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 280000, expUnitPrice: 20000 },
+  ],
+  tile: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 200000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '자재소운반', unit: '식', qty: 1, matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 200000 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 300000, expUnitPrice: 20000 },
+  ],
+  film: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 100000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 300000, expUnitPrice: 20000 },
+  ],
+  wood: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 300000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '자재소운반', unit: '식', qty: 1, matUnitPrice: 0, labUnitPrice: 0, expUnitPrice: 200000 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 300000, expUnitPrice: 20000 },
+  ],
+  luba: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 100000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 300000, expUnitPrice: 20000 },
+  ],
+  tex: [
+    { name: '부자재', unit: '식', qty: 1, matUnitPrice: 50000, labUnitPrice: 0, expUnitPrice: 0 },
+    { name: '노무비', unit: '인', qty: 1, matUnitPrice: 0, labUnitPrice: 280000, expUnitPrice: 20000 },
+  ],
+}
+
 // ── 하부 마감 편집기 (분리 시공 - 필름/도배/도장/템파보드) ──────────────────────────
 const LOWER_FINISH_TYPES = [
   { id: 'film',       label: '인테리어필름' },
@@ -180,7 +219,8 @@ const lf = {
 export default function SurfaceRow({ room, sf }) {
   const { updateSurface, addFilmSection, updateFilmSection, deleteFilmSection, deleteSurface,
     customMaterials, priceOverrides, methodDefaults,
-    addCustomItem, updateCustomItem, deleteCustomItem } = useStore()
+    addCustomItem, updateCustomItem, deleteCustomItem,
+    addSurfaceLaborItem, updateSurfaceLaborItem, deleteSurfaceLaborItem } = useStore()
 
   const upd = (fields) => updateSurface(room.id, sf.id, fields)
   const matOpts = { customMaterials, priceOverrides }
@@ -378,6 +418,14 @@ export default function SurfaceRow({ room, sf }) {
         updateCustomItem={updateCustomItem}
         deleteCustomItem={deleteCustomItem} />
     )}
+    {sf.finishType !== 'none' && (
+      <LaborItemsSection
+        room={room} sf={sf}
+        onAdd={addSurfaceLaborItem}
+        onUpdate={updateSurfaceLaborItem}
+        onDelete={deleteSurfaceLaborItem}
+      />
+    )}
     <MoldingSection room={room} sf={sf} />
     </div>
   )
@@ -474,6 +522,153 @@ const ciStyles = {
   td: { padding: '4px 4px', borderBottom: '1px solid #eef1f7', verticalAlign: 'middle' },
   input: { padding: '3px 5px', border: '1px solid #c8d4e8', borderRadius: 3, fontSize: 12, width: '100%' },
   delBtn: { background: 'none', border: 'none', color: '#c00', cursor: 'pointer', fontSize: 12, padding: '0 2px' },
+}
+
+// ── 면별 노무비/부자재 입력 섹션 ─────────────────────────────
+const LABOR_UNITS = ['인', '식', '㎡', 'm', 'EA', 'BOX']
+
+function LaborItemsSection({ room, sf, onAdd, onUpdate, onDelete }) {
+  const items = sf.laborItems || []
+  const [open, setOpen] = useState(false)
+
+  const matTotal = items.reduce((s, li) => s + (li.matUnitPrice || 0) * (li.qty || 0), 0)
+  const labTotal = items.reduce((s, li) => s + (li.labUnitPrice || 0) * (li.qty || 0), 0)
+  const expTotal = items.reduce((s, li) => s + (li.expUnitPrice || 0) * (li.qty || 0), 0)
+  const total = matTotal + labTotal + expTotal
+
+  return (
+    <div style={li.wrap}>
+      <div style={li.header} onClick={() => setOpen(v => !v)}>
+        <span style={li.icon}>{open ? '▼' : '▶'}</span>
+        <span style={li.title}>노무비 · 부자재</span>
+        {items.length > 0 && (
+          <span style={li.badge}>{items.length}항목 · {total.toLocaleString()}원</span>
+        )}
+        {items.length === 0 && <span style={li.emptyBadge}>미입력</span>}
+      </div>
+      {open && (
+        <div style={li.body}>
+          <div style={li.toolbar}>
+            <button
+              onClick={() => {
+                const defaults = LABOR_DEFAULTS[sf.finishType] || []
+                if (defaults.length === 0) { alert('이 마감재는 기본값이 없습니다.'); return }
+                const newItems = defaults.map(d => ({
+                  id: `li_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+                  ...d,
+                }))
+                useStore.getState().updateSurface(room.id, sf.id, {
+                  laborItems: [...(sf.laborItems || []), ...newItems],
+                })
+              }}
+              style={li.btnAuto}
+            >
+              ★ 기본값 자동추가
+            </button>
+            <button onClick={() => onAdd(room.id, sf.id)} style={li.btnAdd}>+ 항목 추가</button>
+          </div>
+
+          {items.length === 0 ? (
+            <div style={li.empty}>항목이 없습니다. 위 버튼으로 추가하세요.</div>
+          ) : (
+            <>
+              <div style={li.tableHead}>
+                <span style={{ width: 110 }}>품명</span>
+                <span style={{ width: 40 }}>단위</span>
+                <span style={{ width: 44 }}>수량</span>
+                <span style={{ width: 80 }}>재료비단가</span>
+                <span style={{ width: 80 }}>노무비단가</span>
+                <span style={{ width: 80 }}>경비단가</span>
+                <span style={{ width: 80, textAlign: 'right' }}>합계금액</span>
+                <span style={{ width: 20 }}></span>
+              </div>
+              {items.map(item => {
+                const rowTotal = ((item.matUnitPrice || 0) + (item.labUnitPrice || 0) + (item.expUnitPrice || 0)) * (item.qty || 0)
+                const upd = (fields) => onUpdate(room.id, sf.id, item.id, fields)
+                return (
+                  <div key={item.id} style={li.row}>
+                    <input
+                      value={item.name}
+                      onChange={e => upd({ name: e.target.value })}
+                      placeholder="품명"
+                      style={{ ...li.input, width: 108 }}
+                    />
+                    <select
+                      value={item.unit}
+                      onChange={e => upd({ unit: e.target.value })}
+                      style={{ ...li.input, width: 40, padding: '3px 2px' }}
+                    >
+                      {LABOR_UNITS.map(u => <option key={u}>{u}</option>)}
+                    </select>
+                    <input
+                      type="number" min="0" step="0.1"
+                      value={item.qty || ''}
+                      onChange={e => upd({ qty: Number(e.target.value) })}
+                      style={{ ...li.input, width: 42, textAlign: 'right' }}
+                    />
+                    <input
+                      type="number" min="0"
+                      value={item.matUnitPrice || ''}
+                      placeholder="0"
+                      onChange={e => upd({ matUnitPrice: Number(e.target.value) })}
+                      style={{ ...li.input, width: 78, textAlign: 'right' }}
+                    />
+                    <input
+                      type="number" min="0"
+                      value={item.labUnitPrice || ''}
+                      placeholder="0"
+                      onChange={e => upd({ labUnitPrice: Number(e.target.value) })}
+                      style={{ ...li.input, width: 78, textAlign: 'right', background: '#f0f7ff' }}
+                    />
+                    <input
+                      type="number" min="0"
+                      value={item.expUnitPrice || ''}
+                      placeholder="0"
+                      onChange={e => upd({ expUnitPrice: Number(e.target.value) })}
+                      style={{ ...li.input, width: 78, textAlign: 'right', background: '#f5f5f5' }}
+                    />
+                    <span style={{ width: 80, textAlign: 'right', fontSize: 11, fontWeight: 700, color: rowTotal > 0 ? '#1e4078' : '#bbb' }}>
+                      {rowTotal > 0 ? rowTotal.toLocaleString() : '-'}
+                    </span>
+                    <button onClick={() => onDelete(room.id, sf.id, item.id)} style={li.btnDel}>✕</button>
+                  </div>
+                )
+              })}
+              <div style={li.subtotal}>
+                <span>재료비 {matTotal.toLocaleString()}</span>
+                <span>노무비 {labTotal.toLocaleString()}</span>
+                <span>경비 {expTotal.toLocaleString()}</span>
+                <span style={{ fontWeight: 700, color: '#1e4078' }}>합계 {total.toLocaleString()}원</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const li = {
+  wrap: { borderTop: '1px dashed #c8d4e8' },
+  header: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '6px 14px', background: '#f0f5ff', cursor: 'pointer',
+    userSelect: 'none',
+  },
+  icon: { fontSize: 9, color: '#1e4078' },
+  title: { fontSize: 12, fontWeight: 700, color: '#1e4078' },
+  badge: { fontSize: 11, background: '#dde8f8', color: '#1e4078', borderRadius: 10, padding: '1px 8px' },
+  emptyBadge: { fontSize: 11, color: '#f59e0b', background: '#fffbeb', borderRadius: 10, padding: '1px 8px', border: '1px solid #fcd34d' },
+  body: { padding: '8px 14px 10px', background: '#f8faff' },
+  toolbar: { display: 'flex', gap: 6, marginBottom: 8 },
+  btnAuto: { fontSize: 11, padding: '4px 12px', background: '#1e4078', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 600 },
+  btnAdd: { fontSize: 11, padding: '4px 12px', background: '#fff', color: '#1e4078', border: '1px solid #c8d4e8', borderRadius: 4, cursor: 'pointer' },
+  empty: { fontSize: 12, color: '#aaa', padding: '4px 0' },
+  tableHead: { display: 'flex', gap: 4, alignItems: 'center', fontSize: 10, color: '#888', fontWeight: 700, padding: '0 0 4px', borderBottom: '1px solid #e8edf5', marginBottom: 4 },
+  row: { display: 'flex', gap: 4, alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f0f2f5' },
+  input: { border: '1px solid #d0d7e3', borderRadius: 3, padding: '3px 5px', fontSize: 11, background: '#fff' },
+  subtotal: { display: 'flex', gap: 16, justifyContent: 'flex-end', padding: '6px 0 0', fontSize: 11, color: '#555' },
+  btnDel: { background: 'none', border: 'none', color: '#c00', cursor: 'pointer', fontSize: 12, padding: '0 2px', width: 20 },
 }
 
 // ── 필름 구간 편집기 ────────────────────────────────

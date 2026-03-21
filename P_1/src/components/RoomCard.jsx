@@ -12,7 +12,10 @@ export default function RoomCard({ room }) {
 
   const roomTotal = room.surfaces.reduce((sum, sf) => {
     const r = calcSurfaceCost(room, sf, matOpts)
-    return sum + (r?.total || 0)
+    const laborCost = (sf.laborItems || []).reduce((s, li) => {
+      return s + ((li.matUnitPrice || 0) + (li.labUnitPrice || 0) + (li.expUnitPrice || 0)) * (li.qty || 0)
+    }, 0)
+    return sum + (r?.total || 0) + laborCost
   }, 0)
 
   const upd = (fields) => updateRoom(room.id, fields)
