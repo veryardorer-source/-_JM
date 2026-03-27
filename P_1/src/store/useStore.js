@@ -18,6 +18,8 @@ const defaultSurface = (label, direction) => ({
   insulationType: 'none',    // 흡음재 종류
   moldings: [],              // 랩핑평판 (면별)
   customItems: [],           // 직접설정 시 수동 입력 항목
+  noneSeokgoType: 'none',    // 직접설정 시 석고보드 바탕재 ('none' | seokgo id)
+  noneHapanId: 'none',       // 직접설정 시 합판 바탕재 ('none' | hapan id)
   enabled: true,
 })
 

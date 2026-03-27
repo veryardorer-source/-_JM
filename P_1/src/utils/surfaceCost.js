@@ -124,6 +124,22 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
         unitPrice: ci.unitPrice || 0,
         cost: (ci.qty || 0) * (ci.unitPrice || 0),
       }))
+    // 바탕재 자동 계산 (면적이 있을 때만)
+    const { areaSqm: noneArea } = getSurfaceDimensions(room, sf)
+    if (noneArea > 0) {
+      if (sf.noneSeokgoType && sf.noneSeokgoType !== 'none') {
+        const sg = findMat(SEOKGO, sf.noneSeokgoType, customMaterials, 'seokgo') || SEOKGO[0]
+        const unitPrice = ep(sg, 'pricePerSheet', priceOverrides)
+        const { sheets, cost } = calcSeokgo(noneArea, 1, unitPrice)
+        items.unshift({ name: sg.name, spec: '', qty: sheets, unit: '장', unitPrice, cost })
+      }
+      if (sf.noneHapanId && sf.noneHapanId !== 'none') {
+        const hp = findMat(HAPAN, sf.noneHapanId, customMaterials, 'hapan') || HAPAN[0]
+        const unitPrice = ep(hp, 'pricePerSheet', priceOverrides)
+        const { sheets, cost } = calcBoard(noneArea, hp.areaPerSheet, unitPrice)
+        items.unshift({ name: hp.name, spec: '', qty: sheets, unit: '장', unitPrice, cost })
+      }
+    }
     return { items, total: items.reduce((s, i) => s + i.cost, 0) }
   }
 

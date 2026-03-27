@@ -301,6 +301,30 @@ export default function SurfaceRow({ room, sf }) {
               style={styles.inputSm} />
           </label>
         )}
+        {sf.finishType === 'none' && (
+          <>
+            <label style={styles.inlineLabel}>석고보드
+              <select value={sf.noneSeokgoType || 'none'}
+                onChange={e => upd({ noneSeokgoType: e.target.value })}
+                style={styles.selectSm}>
+                <option value="none">없음</option>
+                {[...SEOKGO, ...customMaterials.filter(m => m.category === 'seokgo')].map(s => (
+                  <option key={s.id} value={s.id}>{s.name.replace('900×1800×', '')}</option>
+                ))}
+              </select>
+            </label>
+            <label style={styles.inlineLabel}>합판
+              <select value={sf.noneHapanId || 'none'}
+                onChange={e => upd({ noneHapanId: e.target.value })}
+                style={styles.selectSm}>
+                <option value="none">없음</option>
+                {[...HAPAN, ...customMaterials.filter(m => m.category === 'hapan')].map(h => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
         {['wallpaper', 'paint', 'tile'].includes(sf.finishType) && (
           <label style={styles.inlineLabel}>석고보드
             <select value={sf.seokgoType}
