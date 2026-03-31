@@ -35,9 +35,14 @@ function isOverdue(dueDate) {
   return new Date(dueDate) < new Date(new Date().toDateString())
 }
 
+function localDateStr() {
+  const n = new Date()
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
+}
+
 function isToday(dueDate) {
   if (!dueDate) return false
-  return dueDate === new Date().toISOString().slice(0, 10)
+  return dueDate === localDateStr()
 }
 
 function isRecurringToday(r) {
@@ -53,7 +58,7 @@ function isRecurringToday(r) {
 export default function Dashboard({ onTabChange }) {
   const { projects, tasks, payments, recurring, toggleTaskStatus, deleteTask, completeRecurring, uncompleteRecurring } = useStore()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localDateStr()
   const activeProjects = projects.filter(p => p.status === '진행중')
   const todayTasks = tasks.filter(t => t.status !== '완료' && (isToday(t.dueDate) || (!t.dueDate)))
   const urgentTasks = tasks.filter(t => t.status !== '완료' && t.dueDate && (isUrgent(t.dueDate) || isOverdue(t.dueDate)) && !isToday(t.dueDate))
