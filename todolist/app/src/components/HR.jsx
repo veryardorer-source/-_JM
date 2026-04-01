@@ -63,17 +63,40 @@ function saveRates(rates) {
   try { localStorage.setItem(RATES_KEY, JSON.stringify(rates)) } catch {}
 }
 
-// ── 소득세 간이세액표 (2026년, 부양가족 1인 기준) ─────────────────────
+// ── 소득세 간이세액표 (2026년, 부양가족 1인 기준, 100만원 연봉 단위) ──
 const TAX_TABLE = [
-  [1060000, 1040], [1500000, 8920], [2000000, 19520], [2500000, 35600],
-  [3000000, 74350], [3500000, 127220], [4000000, 195960], [4500000, 262840],
-  [5000000, 335470], [5500000, 405590], [6000000, 505900], [6500000, 619300],
-  [7000000, 732700], [7500000, 846100], [8000000, 959500], [8500000, 1074180],
-  [9000000, 1191180], [9500000, 1340190], [10000000, 1507400],
+  [1060000, 1040], [1500000, 8920],
+  [1666667, 12220], [1750000, 14080], [1833333, 15730], [1916667, 17390],
+  [2000000, 19520], [2083333, 22090], [2166667, 24660], [2250000, 27560],
+  [2333333, 30130], [2416667, 32700], [2500000, 35600], [2583333, 38340],
+  [2666667, 44820], [2750000, 52530], [2833333, 59370], [2916667, 66220],
+  [3000000, 74350], [3083333, 81190], [3166667, 88040], [3250000, 95430],
+  [3333333, 105210], [3416667, 114990], [3500000, 127220], [3583333, 137000],
+  [3666667, 146780], [3750000, 156560], [3833333, 171930], [3916667, 182610],
+  [4000000, 195960], [4083333, 206640], [4166667, 217320], [4250000, 228000],
+  [4333333, 238680], [4416667, 249360], [4500000, 262840], [4583333, 276560],
+  [4666667, 287780], [4750000, 299000], [4833333, 310220], [4916667, 321440],
+  [5000000, 335470], [5083333, 346690], [5166667, 357910], [5250000, 369130],
+  [5333333, 380350], [5416667, 391570], [5500000, 405590], [5583333, 416810],
+  [5666667, 428030], [5750000, 439250], [5833333, 450470], [5916667, 483220],
+  [6000000, 505900], [6083333, 524050], [6166667, 542190], [6250000, 560340],
+  [6333333, 578480], [6416667, 596620], [6500000, 619300], [6583333, 637450],
+  [6666667, 655590], [6750000, 673740], [6833333, 691880], [6916667, 710020],
+  [7000000, 732700], [7083333, 750850], [7166667, 768990], [7250000, 787140],
+  [7333333, 805280], [7416667, 823420], [7500000, 846100], [7583333, 864250],
+  [7666667, 882390], [7750000, 900540], [7833333, 918680], [7916667, 936820],
+  [8000000, 959500], [8083333, 977650], [8166667, 995790], [8250000, 1013940],
+  [8333333, 1032080], [8416667, 1050780], [8500000, 1074180], [8583333, 1092900],
+  [8666667, 1111620], [8750000, 1130340], [8833333, 1149060], [8916667, 1167780],
+  [9000000, 1191180], [9083333, 1209900], [9166667, 1228620], [9250000, 1251470],
+  [9333333, 1278770], [9416667, 1306070], [9500000, 1340190], [9583333, 1367490],
+  [9666667, 1394790], [9750000, 1422090], [9833333, 1449390], [9916667, 1476690],
+  [10000000, 1507400],
 ]
 
-function calcIncomeTax(monthlyTaxable) {
-  if (monthlyTaxable <= 1060000) return 0 // 106만원 이하 비과세
+// 간이세액표 조회 (부양가족 1인 기준)
+function lookupTaxTable(monthlyTaxable) {
+  if (monthlyTaxable <= 1060000) return 0
   for (let i = 0; i < TAX_TABLE.length - 1; i++) {
     const [low, lowTax] = TAX_TABLE[i]
     const [high, highTax] = TAX_TABLE[i + 1]
@@ -86,6 +109,58 @@ function calcIncomeTax(monthlyTaxable) {
   const [prev, prevTax] = TAX_TABLE[TAX_TABLE.length - 2]
   const rate = (lastTax - prevTax) / (last - prev)
   return Math.round(lastTax + (monthlyTaxable - last) * rate)
+}
+
+// 부양가족 조정용 수식 계산 (소득세법 기본세율 + 근로소득공제 + 세액공제)
+function calcFormulaTax(monthlyTaxable, dependents) {
+  const annual = monthlyTaxable * 12
+  // 근로소득공제 (소득세법 제47조)
+  let eid
+  if (annual <= 5000000) eid = annual * 0.7
+  else if (annual <= 15000000) eid = annual * 0.4 + 1500000
+  else if (annual <= 45000000) eid = annual * 0.15 + 5250000
+  else if (annual <= 100000000) eid = annual * 0.05 + 9750000
+  else eid = Math.min(annual * 0.02 + 12750000, 20000000)
+  const taxBase = Math.max(annual - eid - dependents * 1500000, 0)
+  // 산출세액 (기본세율, 소득세법 제55조)
+  let tax
+  if (taxBase <= 14000000) tax = taxBase * 0.06
+  else if (taxBase <= 50000000) tax = 840000 + (taxBase - 14000000) * 0.15
+  else if (taxBase <= 88000000) tax = 6240000 + (taxBase - 50000000) * 0.24
+  else if (taxBase <= 150000000) tax = 15360000 + (taxBase - 88000000) * 0.35
+  else if (taxBase <= 300000000) tax = 37060000 + (taxBase - 150000000) * 0.38
+  else if (taxBase <= 500000000) tax = 94060000 + (taxBase - 300000000) * 0.40
+  else if (taxBase <= 1000000000) tax = 174060000 + (taxBase - 500000000) * 0.42
+  else tax = 384060000 + (taxBase - 1000000000) * 0.45
+  // 근로소득세액공제 (소득세법 제59조)
+  let credit = tax <= 1300000 ? tax * 0.55 : tax * 0.3 + 325000
+  let limit
+  if (annual <= 33000000) limit = 740000
+  else if (annual <= 70000000) limit = Math.max(740000 - (annual - 33000000) * 0.008, 660000)
+  else if (annual <= 120000000) limit = Math.max(660000 - (annual - 70000000) * 0.5, 500000)
+  else limit = Math.max(500000 - (annual - 120000000) * 0.5, 200000)
+  credit = Math.min(credit, limit)
+  return Math.max(Math.floor((tax - credit) / 12 / 10) * 10, 0)
+}
+
+// 소득세 계산 (간이세액표 + 부양가족 조정 + 자녀세액공제)
+function calcIncomeTax(monthlyTaxable, dependents = 1, childrenUnder20 = 0) {
+  if (monthlyTaxable <= 1060000) return 0
+  // 1) 간이세액표 조회 (부양가족 1인 기준)
+  let tax = lookupTaxTable(monthlyTaxable)
+  // 2) 부양가족 2인 이상: 수식 기반 차액 조정
+  if (dependents > 1) {
+    const adj = Math.max(calcFormulaTax(monthlyTaxable, 1) - calcFormulaTax(monthlyTaxable, dependents), 0)
+    tax = Math.max(tax - adj, 0)
+  }
+  // 3) 자녀세액공제 (2026.3~ 개정, 8세이상 20세이하)
+  if (childrenUnder20 > 0) {
+    const cc = childrenUnder20 <= 1 ? 20830
+      : childrenUnder20 === 2 ? 45830
+      : 45830 + (childrenUnder20 - 2) * 33330
+    tax = Math.max(tax - cc, 0)
+  }
+  return Math.floor(tax / 10) * 10
 }
 
 // ── 급여 자동 계산 ────────────────────────────────────────────────────
@@ -156,7 +231,7 @@ function calcPayroll(employee, form, rates) {
   const healthInsurance = billedHealth > 0 ? billedHealth : Math.floor(insBase * (r.healthRate / 100) / 10) * 10
   const longTermCare = Math.floor(healthInsurance * (r.longTermRate / 100) / 10) * 10
   const employmentInsurance = Math.floor(insBase * (r.employmentRate / 100) / 10) * 10
-  const incomeTax = calcIncomeTax(taxable)
+  const incomeTax = calcIncomeTax(taxable, employee?.dependents || 1, employee?.childrenUnder20 || 0)
   const localIncomeTax = Math.round(incomeTax * 0.1)
 
   const totalDeduction = nationalPension + healthInsurance + longTermCare + employmentInsurance
@@ -305,7 +380,7 @@ ${payroll.memo ? `<div class="note">비고: ${payroll.memo}</div>` : ''}
   ${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일<br><br>
   회사명: _________________________ (인)
 </div>
-${!isFreelancer ? '<div class="disc">* 소득세는 국세청 간이세액표 기준 근사치입니다. 부양가족 수에 따라 달라질 수 있습니다.</div>' : ''}
+${!isFreelancer ? '<div class="disc">* 소득세는 국세청 간이세액표(2026년) 기준이며, 부양가족 수·자녀 수가 반영됩니다.</div>' : ''}
 <script>window.onload = function() { setTimeout(function(){ window.print(); }, 300); }</script>
 </body></html>`
 
@@ -325,6 +400,7 @@ function EmployeeModal({ employee, onSave, onClose }) {
     mealAllowance: '', transportAllowance: '',
     seollalBonus: '', chuseokBonus: '', summerBonus: '',
     dailyWage: '',
+    dependents: 1, childrenUnder20: 0,
     hireDate: '', phone: '', status: '재직', memo: '',
     workStartTime: '09:00', workEndTime: '18:00', breakHours: 1,
     workDaysOfWeek: [1, 2, 3, 4, 5],
@@ -352,6 +428,8 @@ function EmployeeModal({ employee, onSave, onClose }) {
       chuseokBonus: Number(form.chuseokBonus) || 0,
       summerBonus: Number(form.summerBonus) || 0,
       dailyWage: Number(form.dailyWage) || 0,
+      dependents: Math.max(Number(form.dependents) || 1, 1),
+      childrenUnder20: Math.max(Number(form.childrenUnder20) || 0, 0),
       breakHours: Number(form.breakHours) || 1,
       workDaysOfWeek: form.workDaysOfWeek || [1, 2, 3, 4, 5],
       billedHealthInsurance: Number(form.billedHealthInsurance) || 0,
@@ -409,6 +487,22 @@ function EmployeeModal({ employee, onSave, onClose }) {
               </select>
             </div>
           </div>
+
+          {/* 부양가족 (소득세 계산용) */}
+          {form.employeeType === '정규직' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">부양가족 수 (본인 포함)</label>
+                <input type="number" min="1" max="11" value={form.dependents ?? 1} onChange={e => set('dependents', e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">20세 이하 자녀 수</label>
+                <input type="number" min="0" max="10" value={form.childrenUnder20 ?? 0} onChange={e => set('childrenUnder20', e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400" />
+              </div>
+            </div>
+          )}
 
           {/* 퇴직 정보 */}
           {form.status === '퇴직' && (
@@ -873,7 +967,7 @@ function PayrollModal({ employee, payroll, yearMonth, rates, overtimeRecord, onS
                   {calc.healthInsurance > 0 && <div className="flex justify-between text-xs text-gray-500"><span>건강보험 {Number(form.billedHealthInsurance) > 0 ? '(고지액)' : '(3.595%)'}</span><span>{won(calc.healthInsurance)}</span></div>}
                   {calc.longTermCare > 0 && <div className="flex justify-between text-xs text-gray-500"><span>장기요양보험</span><span>{won(calc.longTermCare)}</span></div>}
                   {calc.employmentInsurance > 0 && <div className="flex justify-between text-xs text-gray-500"><span>고용보험 (0.9%)</span><span>{won(calc.employmentInsurance)}</span></div>}
-                  {calc.incomeTax > 0 && <div className="flex justify-between text-xs text-gray-500"><span>소득세</span><span>{won(calc.incomeTax)}</span></div>}
+                  {calc.incomeTax > 0 && <div className="flex justify-between text-xs text-gray-500"><span>소득세 <span className="text-gray-400">(부양{employee?.dependents || 1}인{(employee?.childrenUnder20 || 0) > 0 ? ` · 자녀${employee.childrenUnder20}` : ''})</span></span><span>{won(calc.incomeTax)}</span></div>}
                   {calc.localIncomeTax > 0 && <div className="flex justify-between text-xs text-gray-500"><span>지방소득세(주민세)</span><span>{won(calc.localIncomeTax)}</span></div>}
                   {calc.programDeduction > 0 && <div className="flex justify-between text-xs text-gray-500"><span>프로그램공제</span><span>{won(calc.programDeduction)}</span></div>}
                   {calc.absentDeduction > 0 && <div className="flex justify-between text-xs text-gray-500"><span>조퇴공제</span><span>{won(calc.absentDeduction)}</span></div>}
@@ -924,7 +1018,7 @@ function PayrollModal({ employee, payroll, yearMonth, rates, overtimeRecord, onS
           </div>
           {!isFreelancer && (
             <p className="text-[11px] text-gray-400 text-center">
-              * 소득세는 간이세액표 근사치입니다. 부양가족 수에 따라 실제와 다를 수 있습니다.
+              * 소득세는 국세청 간이세액표(2026년) 기준이며, 부양가족 수·자녀 수가 반영됩니다.
             </p>
           )}
         </form>
@@ -1796,7 +1890,7 @@ export default function HR() {
                             {(emp.transportAllowance || 0) > 0 && ` + 교통비 ${won(emp.transportAllowance)}`}
                             {(emp.positionAllowance || 0) > 0 && ` + 직책 ${won(emp.positionAllowance)}`}
                           </div>
-                          {emp.hireDate && <div className="text-gray-400">입사 {emp.hireDate}{emp.contractType === '포괄연봉제' && emp.hourlyWage > 0 ? ` · 통상시급 ${won(emp.hourlyWage)}` : ''}</div>}
+                          {emp.hireDate && <div className="text-gray-400">입사 {emp.hireDate}{emp.contractType === '포괄연봉제' && emp.hourlyWage > 0 ? ` · 통상시급 ${won(emp.hourlyWage)}` : ''}{emp.employeeType === '정규직' ? ` · 부양${emp.dependents || 1}인${(emp.childrenUnder20 || 0) > 0 ? ` · 자녀${emp.childrenUnder20}` : ''}` : ''}</div>}
                           {(emp.workPreset || emp.workStartTime) && (
                             <div className="text-gray-400">
                               {emp.workPreset ? `[${emp.workPreset}] ` : ''}{emp.workStartTime}~{emp.workEndTime}
