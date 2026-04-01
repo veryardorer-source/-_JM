@@ -504,18 +504,24 @@ function EmployeeModal({ employee, onSave, onClose }) {
                     </div>
                   </>
                 )}
-                {monthlyTotal > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="bg-indigo-50 rounded-lg px-3 py-2 flex justify-between text-xs text-indigo-700 font-semibold">
-                      <span>월 합계 (기본급+포괄연장수당)</span>
-                      <span>{won(monthlyTotal)}</span>
+                {monthlyTotal > 0 && (() => {
+                  const totalBonus = (Number(form.seollalBonus) || 0) + (Number(form.chuseokBonus) || 0) + (Number(form.summerBonus) || 0)
+                  const annual = monthlyTotal * 12 + totalBonus
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="bg-indigo-50 rounded-lg px-3 py-2 flex justify-between text-xs text-indigo-700 font-semibold">
+                        <span>월 합계 (기본급+포괄연장수당)</span>
+                        <span>{won(monthlyTotal)}</span>
+                      </div>
+                      <div className="bg-blue-100 rounded-lg px-3 py-2 text-xs text-blue-800 font-bold">
+                        <div className="flex justify-between">
+                          <span>연봉 (×12{totalBonus > 0 ? ' + 상여' : ''})</span>
+                          <span>{won(annual)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="bg-blue-100 rounded-lg px-3 py-2 flex justify-between text-xs text-blue-800 font-bold">
-                      <span>연봉 (×12)</span>
-                      <span>{won(monthlyTotal * 12)}</span>
-                    </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
 
               {/* 직책수당 */}
@@ -1770,13 +1776,15 @@ export default function HR() {
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">{emp.position}{emp.phone ? ` · ${emp.phone}` : ''}</div>
                     {(emp.baseSalary > 0 || emp.dailyWage > 0) && (() => {
-                      const annualBase = ((emp.baseSalary || 0) + (emp.comprehensiveOvertimePay || 0)) * 12
-                      const monthlyTotal = (emp.baseSalary || 0) + (emp.comprehensiveOvertimePay || 0) + (emp.positionAllowance || 0) + (emp.mealAllowance || 0) + (emp.transportAllowance || 0)
+                      const monthlyPay = (emp.baseSalary || 0) + (emp.comprehensiveOvertimePay || 0)
+                      const totalBonus = (emp.seollalBonus || 0) + (emp.chuseokBonus || 0) + (emp.summerBonus || 0)
+                      const annualBase = monthlyPay * 12 + totalBonus
+                      const monthlyTotal = monthlyPay + (emp.positionAllowance || 0) + (emp.mealAllowance || 0) + (emp.transportAllowance || 0)
                       return (
                         <div className="text-xs text-gray-500 mt-1.5 space-y-0.5">
                           {emp.employeeType !== '일용직' && (
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-blue-600">연봉 {won(annualBase)}</span>
+                              <span className="font-semibold text-blue-600">연봉 {won(annualBase)}{totalBonus > 0 ? ` (상여 ${won(totalBonus)} 포함)` : ''}</span>
                               <span className="text-gray-400">월 총지급 {won(monthlyTotal)}</span>
                             </div>
                           )}
