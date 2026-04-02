@@ -1,9 +1,19 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
 import SurfaceRow from './SurfaceRow.jsx'
+import { calcLinearCombo } from '../utils/calculations.js'
+
+const EXTRA_UNITS = ['EA', '식', '㎡', 'm', '장', 'BOX', '롤', '팩', '세트', '짝']
+
+const LIGHTING_PRESETS = [
+  '매입등 3"', '매입등 4"', '매입등 6"',
+  '라인조명 T5', '라인조명 T7',
+  '평판등 300×1200', '평판등 600×600',
+  '펜던트', '벽등', '간접조명', '기타',
+]
 
 export default function RoomCard({ room }) {
-  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor, addWall, customMaterials, priceOverrides } = useStore()
+  const { updateRoom, deleteRoom, duplicateRoom, addDoor, updateDoor, deleteDoor, addWall, addLighting, updateLighting, deleteLighting, addExtra, updateExtra, deleteExtra, customMaterials, priceOverrides } = useStore()
   const [collapsed, setCollapsed] = useState(false)
 
   const upd = (fields) => updateRoom(room.id, fields)
@@ -74,6 +84,145 @@ export default function RoomCard({ room }) {
               </div>
             )}
           </div>
+
+          {/* 조명 */}
+          <div style={s.doorSection}>
+            <div style={s.doorHeader}>
+              <span style={s.doorTitle}>조명</span>
+              <button onClick={() => addLighting(room.id)} style={s.btnAdd}>+ 조명 추가</button>
+            </div>
+            {(room.lightings || []).length > 0 && (
+              <div style={s.doorTable}>
+                <div style={s.doorHead}>
+                  <span style={{ width: 130 }}>종류</span>
+                  <span style={{ flex: 1 }}>규격/메모</span>
+                  <span style={{ width: 80 }}>수량/길이</span>
+                  <span style={{ width: 90 }}>단가(원)</span>
+                  <span style={{ width: 90, textAlign: 'right' }}>금액</span>
+                  <span style={{ width: 30 }}></span>
+                </div>
+                {(room.lightings || []).map(lit => {
+                  const isLine = lit.name === '라인조명 T5' || lit.name === '라인조명 T7'
+                  const combo = isLine && lit.totalLengthMm > 0 ? calcLinearCombo(lit.totalLengthMm) : null
+                  const totalQty = combo ? combo.items.reduce((s, c) => s + c.count, 0) : (lit.qty || 0)
+                  const totalCost = totalQty * (lit.unitPrice || 0)
+
+                  return (
+                    <div key={lit.id}>
+                      <div style={s.doorRow}>
+                        <select value={LIGHTING_PRESETS.includes(lit.name) ? lit.name : '기타'}
+                          onChange={e => {
+                            const v = e.target.value
+                            if (v === '기타') updateLighting(room.id, lit.id, { name: '', totalLengthMm: 0 })
+                            else updateLighting(room.id, lit.id, { name: v, totalLengthMm: 0 })
+                          }}
+                          style={{ ...s.doorInput, width: 130 }}>
+                          {LIGHTING_PRESETS.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        {!LIGHTING_PRESETS.includes(lit.name) && (
+                          <input value={lit.name} placeholder="조명명 입력"
+                            onChange={e => updateLighting(room.id, lit.id, { name: e.target.value })}
+                            style={{ ...s.doorInput, width: 100 }} />
+                        )}
+                        <input value={lit.spec || ''} placeholder="규격/메모"
+                          onChange={e => updateLighting(room.id, lit.id, { spec: e.target.value })}
+                          style={{ ...s.doorInput, flex: 1 }} />
+                        {isLine ? (
+                          <input type="number" min="0" step="1" value={lit.totalLengthMm || ''}
+                            placeholder="총길이(mm)"
+                            onChange={e => updateLighting(room.id, lit.id, { totalLengthMm: Number(e.target.value) })}
+                            style={{ ...s.doorInput, width: 80, textAlign: 'right' }} />
+                        ) : (
+                          <input type="number" min="0" step="1" value={lit.qty || ''}
+                            placeholder="수량"
+                            onChange={e => updateLighting(room.id, lit.id, { qty: Number(e.target.value) })}
+                            style={{ ...s.doorInput, width: 80, textAlign: 'right' }} />
+                        )}
+                        <input type="number" min="0" value={lit.unitPrice || ''}
+                          onChange={e => updateLighting(room.id, lit.id, { unitPrice: Number(e.target.value) })}
+                          style={{ ...s.doorInput, width: 90, textAlign: 'right' }} />
+                        <span style={{ width: 90, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#1e4078' }}>
+                          {totalCost > 0 ? totalCost.toLocaleString() + '원' : '-'}
+                        </span>
+                        <button onClick={() => deleteLighting(room.id, lit.id)} style={s.btnRed}>✕</button>
+                      </div>
+                      {/* 라인조명 자동 분할 결과 */}
+                      {combo && combo.items.length > 0 && (
+                        <div style={s.lineBreakdown}>
+                          {combo.items.map((c, i) => (
+                            <span key={i} style={s.lineChip}>{c.size}mm × {c.count}개</span>
+                          ))}
+                          {combo.remaining > 0 && (
+                            <span style={{ ...s.lineChip, background: '#fee2e2', color: '#dc2626' }}>나머지 {combo.remaining}mm</span>
+                          )}
+                          <span style={s.lineTotal}>총 {totalQty}개</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                <div style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12, fontWeight: 700, color: '#1e4078' }}>
+                  합계: {(room.lightings || []).reduce((sum, l) => {
+                    const isLine = l.name === '라인조명 T5' || l.name === '라인조명 T7'
+                    if (isLine && l.totalLengthMm > 0) {
+                      const combo = calcLinearCombo(l.totalLengthMm)
+                      return sum + combo.items.reduce((s, c) => s + c.count, 0) * (l.unitPrice || 0)
+                    }
+                    return sum + (l.qty || 0) * (l.unitPrice || 0)
+                  }, 0).toLocaleString()}원
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 추가항목 (가구, 기타) */}
+          <div style={s.doorSection}>
+            <div style={s.doorHeader}>
+              <span style={s.doorTitle}>추가항목</span>
+              <button onClick={() => addExtra(room.id)} style={s.btnAdd}>+ 항목 추가</button>
+            </div>
+            {(room.extras || []).length > 0 && (
+              <div style={s.doorTable}>
+                <div style={s.doorHead}>
+                  <span style={{ flex: 1 }}>항목명</span>
+                  <span style={{ width: 100 }}>규격</span>
+                  <span style={{ width: 55 }}>수량</span>
+                  <span style={{ width: 60 }}>단위</span>
+                  <span style={{ width: 90 }}>단가(원)</span>
+                  <span style={{ width: 90, textAlign: 'right' }}>금액</span>
+                  <span style={{ width: 30 }}></span>
+                </div>
+                {(room.extras || []).map(ext => (
+                  <div key={ext.id} style={s.doorRow}>
+                    <input value={ext.name} placeholder="예) 붙박이장, 신발장"
+                      onChange={e => updateExtra(room.id, ext.id, { name: e.target.value })}
+                      style={{ ...s.doorInput, flex: 1 }} />
+                    <input value={ext.spec || ''} placeholder="규격"
+                      onChange={e => updateExtra(room.id, ext.id, { spec: e.target.value })}
+                      style={{ ...s.doorInput, width: 100 }} />
+                    <input type="number" min="0" step="0.1" value={ext.qty || ''}
+                      onChange={e => updateExtra(room.id, ext.id, { qty: Number(e.target.value) })}
+                      style={{ ...s.doorInput, width: 55, textAlign: 'right' }} />
+                    <select value={ext.unit || 'EA'}
+                      onChange={e => updateExtra(room.id, ext.id, { unit: e.target.value })}
+                      style={{ ...s.doorInput, width: 60 }}>
+                      {EXTRA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                    <input type="number" min="0" value={ext.unitPrice || ''}
+                      onChange={e => updateExtra(room.id, ext.id, { unitPrice: Number(e.target.value) })}
+                      style={{ ...s.doorInput, width: 90, textAlign: 'right' }} />
+                    <span style={{ width: 90, textAlign: 'right', fontSize: 12, fontWeight: 600, color: '#1e4078' }}>
+                      {((ext.qty || 0) * (ext.unitPrice || 0)).toLocaleString()}원
+                    </span>
+                    <button onClick={() => deleteExtra(room.id, ext.id)} style={s.btnRed}>✕</button>
+                  </div>
+                ))}
+                <div style={{ textAlign: 'right', padding: '6px 8px', fontSize: 12, fontWeight: 700, color: '#1e4078' }}>
+                  합계: {(room.extras || []).reduce((s, e) => s + (e.qty || 0) * (e.unitPrice || 0), 0).toLocaleString()}원
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -111,4 +260,7 @@ const s = {
   doorHead: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 10, color: '#94a3b8', fontWeight: 700, padding: '0 4px 4px', textTransform: 'uppercase' },
   doorRow: { display: 'flex', gap: 6, alignItems: 'center', background: '#f8faff', borderRadius: 8, padding: '6px 8px', border: '1px solid #e2e8f0' },
   doorInput: { border: '1px solid #d0d7e3', borderRadius: 6, padding: '5px 5px', fontSize: 12, textAlign: 'center', background: '#fff' },
+  lineBreakdown: { display: 'flex', gap: 6, flexWrap: 'wrap', padding: '4px 8px 6px', alignItems: 'center' },
+  lineChip: { fontSize: 11, background: '#e8f0fc', color: '#1e4078', padding: '2px 8px', borderRadius: 4, fontWeight: 600 },
+  lineTotal: { fontSize: 11, color: '#1e4078', fontWeight: 700, marginLeft: 4 },
 }

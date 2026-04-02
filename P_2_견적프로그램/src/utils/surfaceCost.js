@@ -2,7 +2,7 @@
 // 면(surface) 하나의 전체 비용 계산
 // ─────────────────────────────────────────────
 import {
-  GAKJAE, SEOKGO, MDF, HAPAN, WALLPAPER, TILE, FLOORING, LUBA, TEX, INSULATION,
+  GAKJAE, SEOKGO, MDF, HAPAN, WALLPAPER, TILE, FLOORING, LUBA, TEX, INSULATION, WRAPPING,
 } from '../data/materials.js'
 
 // 자재 조회: 커스텀 자재 우선, 없으면 기본 배열에서 찾기
@@ -199,14 +199,19 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
       }
     } else {
       // 벽면: 세로상 450mm 간격, 가로상 단수(2 or 3) 적용
+      const isNewWall = sf.wallType === 'new'
+      const gakMultiplier = isNewWall ? 2 : 1  // 신설벽: 양면 각재
       const { breakdown, rowCount } = calcGakjae(widthMm, heightMm, sf.gakjaeRows ?? null)
       breakdown.forEach(({ length, count }) => {
         const gak = GAKJAE.find(g => g.length === length)
         if (!gak || count === 0) return
-        const dan = Math.ceil(count / gak.countPerDan)
+        const totalCount = count * gakMultiplier
+        const dan = Math.ceil(totalCount / gak.countPerDan)
         items.push({
           name: `각재 28×28×${length}`,
-          spec: `세로 450간격 / 가로 ${rowCount}단`,
+          spec: isNewWall
+            ? `세로 450간격 / 가로 ${rowCount}단 × 양면`
+            : `세로 450간격 / 가로 ${rowCount}단`,
           qty: dan,
           unit: '단',
           unitPrice: gak.pricePerDan,
@@ -216,21 +221,19 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
     }
   }
 
-  // ── 합판 (벽 100mm: 각재 28 + 합판 + 28 = 100mm) ─────
-  if (isWall && sf.wallThickness === '100mm') {
-    const { sheets, verticalCount } = calcWall100mmHapan(widthMm, heightMm)
-    if (sheets > 0) {
-      const hapan = HAPAN.find(h => h.id === 'hp_normal_4') || HAPAN[0]
-      const unitPrice = ep(hapan, 'pricePerSheet', priceOverrides)
-      items.push({
-        name: hapan.name,
-        spec: `100mm벽 각재지지 (세로각재 ${verticalCount}위치, 장당 13조각 재단, 28+합판+28=100mm)`,
-        qty: sheets,
-        unit: '장',
-        unitPrice,
-        cost: sheets * unitPrice,
-      })
-    }
+  // ── 합판 (신설벽: 각재 + 합판 + 석고) ─────
+  if (isWall && sf.wallType === 'new') {
+    const hapan = findMat(HAPAN, sf.newWallHapanId || 'hp_normal_4', customMaterials, 'hapan') || HAPAN.find(h => h.id === 'hp_normal_4') || HAPAN[0]
+    const unitPrice = ep(hapan, 'pricePerSheet', priceOverrides)
+    const { sheets, cost } = calcBoard(area, hapan.areaPerSheet, unitPrice)
+    items.push({
+      name: hapan.name,
+      spec: '신설벽 바탕합판',
+      qty: sheets,
+      unit: '장',
+      unitPrice,
+      cost,
+    })
   }
 
   // ── M-BAR (텍스 천장) ────────────────────────────
@@ -259,6 +262,8 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
   }
 
   // ── 석고보드 (바닥 제외) ─────────────────────────────
+  // 기존벽/신설벽 공통: 석고 1겹
+  // 도장: 석고 1장 추가 (총 2겹)
   // 분리시공 시: 상부(도배/페인트) 구간 면적만 적용
   const needsSeokgo = sf.direction !== 'floor' && ['wallpaper', 'paint', 'film', 'luba', 'tile'].includes(sf.finishType)
   if (needsSeokgo) {
@@ -266,7 +271,11 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
     const seokgoType = sf.finishType === 'tile' ? 'sg_waterproof' : sf.seokgoType
     const sg = findMat(SEOKGO, seokgoType, customMaterials, 'seokgo') || SEOKGO[0]
     const seokgoArea = isSplitWall ? upperArea : area
-    const seokgoSpec = isSplitWall ? `상부 ${upperHMm}mm구간${layers > 1 ? ` ${layers}겹` : ''}` : (layers > 1 ? `${layers}겹` : '')
+    const wallLabel = isWall ? (sf.wallType === 'new' ? '신설벽' : '기존벽') : ''
+    const layerLabel = layers > 1 ? ` ${layers}겹` : ''
+    const seokgoSpec = isSplitWall
+      ? `${wallLabel} 상부 ${upperHMm}mm구간${layerLabel}`
+      : `${wallLabel}${layerLabel}`.trim()
     if (isCustom(sg)) {
       const r = calcCustomMat(seokgoArea * layers, widthMm, upperHMm, room, sg, priceOverrides)
       items.push({ ...r, spec: seokgoSpec })
@@ -410,6 +419,26 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
     }
     default:
       break
+  }
+
+  // ── 래핑평판 (벽면만, 복수) ──────────────────
+  if (isWall && sf.wrappings && sf.wrappings.length > 0) {
+    for (const wr of sf.wrappings) {
+      const wrap = findMat(WRAPPING, wr.wrappingId, customMaterials, 'wrapping') || WRAPPING.find(w => w.id === wr.wrappingId)
+      if (!wrap) continue
+      const lengthMm = wrap.lengthMm || 2400
+      const useMm = wr.lengthOverrideMm > 0 ? wr.lengthOverrideMm : widthMm
+      const unitPrice = ep(wrap, 'pricePerEa', priceOverrides)
+      const qty = Math.ceil(useMm / lengthMm)
+      items.push({
+        name: wrap.name,
+        spec: `${wr.purpose || '래핑'} (${useMm}mm ÷ ${lengthMm}mm)`,
+        qty,
+        unit: 'EA',
+        unitPrice,
+        cost: qty * unitPrice,
+      })
+    }
   }
 
   // ── 하부 마감 (분리 시공: 상부 도배/페인트 + 하부 다양한 마감) ──────

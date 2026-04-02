@@ -41,6 +41,7 @@ const createRoom = (name) => ({
   heightM: 2.4,
   slabHeightM: 0,
   doors: [],
+  extras: [],
   surfaces: [
     defaultSurface('바닥', 'floor'),
     defaultSurface('천장', 'ceiling'),
@@ -100,6 +101,60 @@ export const useStore = create(
           : r)
       })),
 
+      addWrapping: (roomId, sfId) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, surfaces: r.surfaces.map(sf => sf.id === sfId
+              ? { ...sf, wrappings: [...(sf.wrappings || []), { id: `wr_${Date.now()}_${Math.random()}`, purpose: '걸레받이', wrappingId: 'wrap_60', lengthOverrideMm: 0 }] }
+              : sf) }
+          : r)
+      })),
+      updateWrapping: (roomId, sfId, wrId, fields) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, surfaces: r.surfaces.map(sf => sf.id === sfId
+              ? { ...sf, wrappings: (sf.wrappings || []).map(wr => wr.id === wrId ? { ...wr, ...fields } : wr) }
+              : sf) }
+          : r)
+      })),
+      deleteWrapping: (roomId, sfId, wrId) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, surfaces: r.surfaces.map(sf => sf.id === sfId
+              ? { ...sf, wrappings: (sf.wrappings || []).filter(wr => wr.id !== wrId) }
+              : sf) }
+          : r)
+      })),
+
+      addLighting: (roomId) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, lightings: [...(r.lightings || []), { id: `lit_${Date.now()}_${Math.random()}`, name: '', spec: '', qty: 1, unitPrice: 0 }] }
+          : r)
+      })),
+      updateLighting: (roomId, litId, fields) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, lightings: (r.lightings || []).map(l => l.id === litId ? { ...l, ...fields } : l) }
+          : r)
+      })),
+      deleteLighting: (roomId, litId) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, lightings: (r.lightings || []).filter(l => l.id !== litId) }
+          : r)
+      })),
+
+      addExtra: (roomId) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, extras: [...(r.extras || []), { id: `ext_${Date.now()}_${Math.random()}`, name: '', spec: '', qty: 1, unit: 'EA', unitPrice: 0 }] }
+          : r)
+      })),
+      updateExtra: (roomId, extId, fields) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, extras: (r.extras || []).map(e => e.id === extId ? { ...e, ...fields } : e) }
+          : r)
+      })),
+      deleteExtra: (roomId, extId) => set(s => ({
+        rooms: s.rooms.map(r => r.id === roomId
+          ? { ...r, extras: (r.extras || []).filter(e => e.id !== extId) }
+          : r)
+      })),
+
       addFilmSection: (roomId, sfId) => set(s => ({
         rooms: s.rooms.map(r => r.id === roomId
           ? { ...r, surfaces: r.surfaces.map(sf => sf.id === sfId
@@ -142,6 +197,22 @@ export const useStore = create(
               ? { ...sf, customItems: (sf.customItems || []).filter(ci => ci.id !== itemId) }
               : sf) }
           : r)
+      })),
+
+      // 자재 단가 관리
+      setPriceOverride: (id, price) => set(s => {
+        const next = { ...s.priceOverrides }
+        if (price === undefined) { delete next[id] } else { next[id] = price }
+        return { priceOverrides: next }
+      }),
+
+      // 커스텀 자재 관리
+      addCustomMaterial: (mat) => set(s => ({ customMaterials: [...s.customMaterials, mat] })),
+      updateCustomMaterial: (id, fields) => set(s => ({
+        customMaterials: s.customMaterials.map(m => m.id === id ? { ...m, ...fields } : m)
+      })),
+      deleteCustomMaterial: (id) => set(s => ({
+        customMaterials: s.customMaterials.filter(m => m.id !== id)
       })),
 
       clearAll: () => set({ rooms: [] }),

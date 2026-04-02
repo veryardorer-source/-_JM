@@ -149,6 +149,70 @@ export const ETC_WOOD = [
   { id: 'ew_design_normal',name: '디자인월(비방염) 790×325×9T',    areaPerBox: 1.542, pricePerBox: 37500 },
 ]
 
+// 래핑평판 (단위: EA, 길이 2400mm 기준)
+export const WRAPPING = [
+  { id: 'wrap_30',  name: '래핑평판 30mm',  widthMm: 30,  lengthMm: 2400, pricePerEa: 2000 },
+  { id: 'wrap_45',  name: '래핑평판 45mm',  widthMm: 45,  lengthMm: 2400, pricePerEa: 2500 },
+  { id: 'wrap_60',  name: '래핑평판 60mm',  widthMm: 60,  lengthMm: 2400, pricePerEa: 3000 },
+  { id: 'wrap_80',  name: '래핑평판 80mm',  widthMm: 80,  lengthMm: 2400, pricePerEa: 3500 },
+  { id: 'wrap_100', name: '래핑평판 100mm', widthMm: 100, lengthMm: 2400, pricePerEa: 4000 },
+  { id: 'wrap_120', name: '래핑평판 120mm', widthMm: 120, lengthMm: 2400, pricePerEa: 5000 },
+  { id: 'wrap_150', name: '래핑평판 150mm', widthMm: 150, lengthMm: 2400, pricePerEa: 6000 },
+  { id: 'wrap_200', name: '래핑평판 200mm', widthMm: 200, lengthMm: 2400, pricePerEa: 8000 },
+  { id: 'wrap_250', name: '래핑평판 250mm', widthMm: 250, lengthMm: 2400, pricePerEa: 10000 },
+  { id: 'wrap_300', name: '래핑평판 300mm', widthMm: 300, lengthMm: 2400, pricePerEa: 12000 },
+  { id: 'wrap_400', name: '래핑평판 400mm', widthMm: 400, lengthMm: 2400, pricePerEa: 16000 },
+  { id: 'wrap_600', name: '래핑평판 600mm', widthMm: 600, lengthMm: 2400, pricePerEa: 24000 },
+]
+
+// 인테리어필름 제품 (단위: m, 롤 기준)
+export const FILM = [
+  { id: 'film_white_mat',    name: '화이트무광',      pricePerM: 5000,  widthMm: 1220 },
+  { id: 'film_white_gloss',  name: '화이트유광',      pricePerM: 5000,  widthMm: 1220 },
+  { id: 'film_wood_light',   name: '우드라이트',      pricePerM: 7000,  widthMm: 1220 },
+  { id: 'film_wood_dark',    name: '우드다크',        pricePerM: 7000,  widthMm: 1220 },
+  { id: 'film_concrete',     name: '콘크리트',        pricePerM: 8000,  widthMm: 1220 },
+  { id: 'film_marble',       name: '대리석',          pricePerM: 10000, widthMm: 1220 },
+  { id: 'film_metal',        name: '메탈',            pricePerM: 12000, widthMm: 1220 },
+]
+
+// 도어 (단위: 짝)
+export const DOOR = [
+  { id: 'door_abs',       name: 'ABS도어',       pricePerEa: 150000 },
+  { id: 'door_room',      name: '방문',           pricePerEa: 180000 },
+  { id: 'door_glass',     name: '강화도어',       pricePerEa: 350000 },
+  { id: 'door_double',    name: '양문형도어',     pricePerEa: 400000 },
+  { id: 'door_entrance',  name: '현관문',         pricePerEa: 500000 },
+  { id: 'door_sliding',   name: '미서기문',       pricePerEa: 300000 },
+  { id: 'door_folding',   name: '폴딩도어',       pricePerEa: 450000 },
+  { id: 'door_jungmun',   name: '중문',           pricePerEa: 600000 },
+]
+
+// 조명 (단위: EA)
+export const LIGHTING = [
+  { id: 'light_3in',       name: '매입등 3"',          pricePerEa: 8000 },
+  { id: 'light_4in',       name: '매입등 4"',          pricePerEa: 12000 },
+  { id: 'light_6in',       name: '매입등 6"',          pricePerEa: 18000 },
+  { id: 'light_t5',        name: '라인조명 T5',        pricePerEa: 15000, perM: true },
+  { id: 'light_t7',        name: '라인조명 T7',        pricePerEa: 20000, perM: true },
+  { id: 'light_panel_3x12',name: '평판등 300×1200',    pricePerEa: 35000 },
+  { id: 'light_panel_6x6', name: '평판등 600×600',     pricePerEa: 30000 },
+  { id: 'light_pendant',   name: '펜던트',             pricePerEa: 50000 },
+  { id: 'light_wall',      name: '벽등',               pricePerEa: 30000 },
+  { id: 'light_indirect',  name: '간접조명',           pricePerEa: 20000, perM: true },
+]
+
+// 가구 (단위: EA)
+export const FURNITURE = [
+  { id: 'fur_shoe',     name: '신발장',       pricePerEa: 0 },
+  { id: 'fur_closet',   name: '붙박이장',     pricePerEa: 0 },
+  { id: 'fur_storage',  name: '수납장',       pricePerEa: 0 },
+  { id: 'fur_kitchen',  name: '주방가구',     pricePerEa: 0 },
+  { id: 'fur_vanity',   name: '세면대/화장대', pricePerEa: 0 },
+  { id: 'fur_desk',     name: '데스크',       pricePerEa: 0 },
+  { id: 'fur_shelf',    name: '선반',         pricePerEa: 0 },
+]
+
 export const LIGHTING_TYPES = [
   '매입등 3"', '매입등 4"', '매입등 6"',
   '라인조명 T5', '라인조명 T7',

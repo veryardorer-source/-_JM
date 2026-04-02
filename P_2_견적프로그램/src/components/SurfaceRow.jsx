@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { FINISH_TYPES, SEOKGO, MDF, HAPAN, WALLPAPER, TILE, FLOORING, TEX, INSULATION } from '../data/materials.js'
+import { FINISH_TYPES, SEOKGO, MDF, HAPAN, WALLPAPER, TILE, FLOORING, TEX, INSULATION, WRAPPING } from '../data/materials.js'
 import { calcSurfaceCost, getSurfaceDimensions } from '../utils/surfaceCost.js'
 import { calcFilmSections } from '../utils/calculations.js'
 
@@ -176,10 +176,13 @@ const lf = {
   btnDel: { background: 'none', border: 'none', color: '#c00', cursor: 'pointer', fontSize: 12 },
 }
 
+const WRAPPING_PURPOSES = ['걸레받이', '천정몰딩', '창틀', '칠판몰딩', '문틀', '코너몰딩', '기타']
+
 export default function SurfaceRow({ room, sf }) {
   const { updateSurface, addFilmSection, updateFilmSection, deleteFilmSection, deleteSurface,
     customMaterials, priceOverrides,
     addCustomItem, updateCustomItem, deleteCustomItem,
+    addWrapping, updateWrapping, deleteWrapping,
   } = useStore()
 
   const upd = (fields) => updateSurface(room.id, sf.id, fields)
@@ -335,14 +338,26 @@ export default function SurfaceRow({ room, sf }) {
             </select>
           </label>
         )}
-        {/* 벽 두께 (벽면만) */}
+        {/* 벽 종류 (벽면만) */}
         {isWall && sf.finishType !== 'none' && (
-          <label style={styles.inlineLabel}>벽 두께
-            <select value={sf.wallThickness || 'default'}
-              onChange={e => upd({ wallThickness: e.target.value })}
+          <label style={styles.inlineLabel}>벽 종류
+            <select value={sf.wallType || 'existing'}
+              onChange={e => upd({ wallType: e.target.value })}
               style={styles.selectSm}>
-              <option value="default">기본(28mm)</option>
-              <option value="100mm">100mm(28+합판+28)</option>
+              <option value="existing">기존벽</option>
+              <option value="new">신설벽</option>
+            </select>
+          </label>
+        )}
+        {/* 신설벽 합판 선택 */}
+        {isWall && sf.finishType !== 'none' && sf.wallType === 'new' && (
+          <label style={styles.inlineLabel}>바탕합판
+            <select value={sf.newWallHapanId || 'hp_normal_4'}
+              onChange={e => upd({ newWallHapanId: e.target.value })}
+              style={styles.selectSm}>
+              {[...HAPAN, ...customMaterials.filter(m => m.category === 'hapan')].map(h => (
+                <option key={h.id} value={h.id}>{h.name}</option>
+              ))}
             </select>
           </label>
         )}
@@ -364,6 +379,44 @@ export default function SurfaceRow({ room, sf }) {
               {INSULATION.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
           </label>
+        )}
+        {/* 래핑평판 (벽면만) */}
+        {isWall && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600 }}>래핑평판</span>
+              <button onClick={() => addWrapping(room.id, sf.id)} style={styles.btnAdd}>+ 추가</button>
+            </div>
+            {(sf.wrappings || []).map(wr => {
+              const wrap = WRAPPING.find(w => w.id === wr.wrappingId)
+              const wallW = getSurfaceDimensions(room, sf).widthMm
+              const useMm = wr.lengthOverrideMm > 0 ? wr.lengthOverrideMm : wallW
+              const boardLen = wrap ? wrap.lengthMm : 2400
+              const qty = useMm > 0 ? Math.ceil(useMm / boardLen) : 0
+              return (
+                <div key={wr.id} style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 11 }}>
+                  <select value={wr.purpose || '걸레받이'}
+                    onChange={e => updateWrapping(room.id, sf.id, wr.id, { purpose: e.target.value })}
+                    style={{ ...styles.selectSm, width: 85 }}>
+                    {WRAPPING_PURPOSES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <select value={wr.wrappingId || 'wrap_60'}
+                    onChange={e => updateWrapping(room.id, sf.id, wr.id, { wrappingId: e.target.value })}
+                    style={{ ...styles.selectSm, width: 130 }}>
+                    {WRAPPING.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  <input type="number" min="0" value={wr.lengthOverrideMm || ''}
+                    placeholder={`${wallW}mm`}
+                    onChange={e => updateWrapping(room.id, sf.id, wr.id, { lengthOverrideMm: Number(e.target.value) })}
+                    title="길이 직접입력 (0=벽폭 자동)"
+                    style={{ ...styles.inputTiny, width: 65 }} />
+                  <span style={{ color: '#1e4078', fontWeight: 600, whiteSpace: 'nowrap' }}>{qty}EA</span>
+                  <button onClick={() => deleteWrapping(room.id, sf.id, wr.id)}
+                    style={{ ...styles.btnDel, fontSize: 9, padding: '1px 4px' }}>✕</button>
+                </div>
+              )
+            })}
+          </div>
         )}
         {/* 하부 마감 분리 시공 토글 (벽 + 도배/페인트만) */}
         {isWall && ['wallpaper', 'paint'].includes(sf.finishType) && (
@@ -411,11 +464,20 @@ const COMMON_UNITS = ['식', '㎡', 'm', '장', 'BOX', '롤', '팩', 'EA', '단'
 function CustomItemsEditor({ room, sf, addCustomItem, updateCustomItem, deleteCustomItem }) {
   const items = sf.customItems || []
   const total = items.reduce((s, ci) => s + (ci.qty || 0) * (ci.unitPrice || 0), 0)
+  const { widthMm, heightMm, areaSqm } = getSurfaceDimensions(room, sf)
+  const isWall = !['floor', 'ceiling'].includes(sf.direction)
+  const perimeterM = isWall ? (widthMm / 1000) : ((widthMm + heightMm) * 2 / 1000)
 
   return (
     <div style={ciStyles.wrap}>
       <div style={ciStyles.header}>
-        <span style={ciStyles.title}>직접 항목 입력</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={ciStyles.title}>직접 항목 입력</span>
+          <span style={ciStyles.areaBadge}>면적: {areaSqm.toFixed(2)}㎡</span>
+          <span style={ciStyles.areaBadge}>{isWall ? '폭' : '가로'}: {(widthMm/1000).toFixed(2)}m</span>
+          <span style={ciStyles.areaBadge}>{isWall ? '높이' : '세로'}: {(heightMm/1000).toFixed(2)}m</span>
+          {isWall && <span style={ciStyles.areaBadge}>둘레: {perimeterM.toFixed(2)}m</span>}
+        </div>
         <button onClick={() => addCustomItem(room.id, sf.id)} style={ciStyles.addBtn}>+ 항목 추가</button>
       </div>
       {items.length === 0 ? (
@@ -496,6 +558,7 @@ const ciStyles = {
   td: { padding: '4px 4px', borderBottom: '1px solid #eef1f7', verticalAlign: 'middle' },
   input: { padding: '3px 5px', border: '1px solid #c8d4e8', borderRadius: 3, fontSize: 12, width: '100%' },
   delBtn: { background: 'none', border: 'none', color: '#c00', cursor: 'pointer', fontSize: 12, padding: '0 2px' },
+  areaBadge: { fontSize: 11, color: '#1e4078', background: '#e8f0fc', borderRadius: 4, padding: '2px 8px', fontWeight: 600 },
 }
 
 // ── 필름 구간 편집기 ────────────────────────────────

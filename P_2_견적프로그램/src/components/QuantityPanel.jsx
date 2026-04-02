@@ -3,6 +3,33 @@ import { useStore } from '../store/useStore.js'
 import { calcSurfaceCost } from '../utils/surfaceCost.js'
 import { calcLinearCombo } from '../utils/calculations.js'
 
+function expandLightings(lightings) {
+  const items = []
+  for (const l of (lightings || [])) {
+    if (!l.name || (!l.qty && !l.totalLengthMm)) continue
+    const isLine = l.name === '라인조명 T5' || l.name === '라인조명 T7'
+    if (isLine && l.totalLengthMm > 0) {
+      const combo = calcLinearCombo(l.totalLengthMm)
+      combo.items.forEach(c => {
+        items.push({
+          name: `${l.name} ${c.size}mm`,
+          qty: c.count,
+          unit: 'EA',
+          isLighting: true,
+        })
+      })
+    } else if (l.qty > 0) {
+      items.push({
+        name: l.spec ? `${l.name} (${l.spec})` : l.name,
+        qty: l.qty,
+        unit: 'EA',
+        isLighting: true,
+      })
+    }
+  }
+  return items
+}
+
 const DIR_LABEL = { wallA: '벽A', wallB: '벽B', wallC: '벽C', wallD: '벽D', floor: '바닥', ceiling: '천장', wallExtra: '추가벽' }
 
 function aggregateItems(itemsList) {
@@ -52,10 +79,21 @@ export default function QuantityPanel() {
         isDoor: true,
       }))
 
-    const allItems = [...surfaceData.flatMap(d => d.items), ...doorItems]
+    const lightingItems = expandLightings(room.lightings)
+
+    const extraItems = (room.extras || [])
+      .filter(e => e.name && e.qty > 0)
+      .map(e => ({
+        name: e.spec ? `${e.name} (${e.spec})` : e.name,
+        qty: e.qty,
+        unit: e.unit || 'EA',
+        isExtra: true,
+      }))
+
+    const allItems = [...surfaceData.flatMap(d => d.items), ...doorItems, ...lightingItems, ...extraItems]
     const roomAggregate = aggregateItems(allItems)
-    return { room, surfaceData, doorItems, roomAggregate }
-  }).filter(r => r.surfaceData.length > 0 || r.doorItems.length > 0)
+    return { room, surfaceData, doorItems, lightingItems, extraItems, roomAggregate }
+  }).filter(r => r.surfaceData.length > 0 || r.doorItems.length > 0 || r.lightingItems.length > 0 || r.extraItems.length > 0)
 
   const grandAggregate = aggregateItems(roomData.flatMap(r => r.roomAggregate))
   const toggleRoom = (id) => setCollapsedRooms(p => ({ ...p, [id]: !p[id] }))
@@ -70,7 +108,7 @@ export default function QuantityPanel() {
         <p style={s.empty}>공간을 추가하고 마감재를 선택하면 집계됩니다.</p>
       ) : (
         <>
-          {roomData.map(({ room, surfaceData, doorItems, roomAggregate }) => (
+          {roomData.map(({ room, surfaceData, doorItems, lightingItems, extraItems, roomAggregate }) => (
             <div key={room.id} style={s.roomBlock}>
               <div style={s.roomHeader} onClick={() => toggleRoom(room.id)}>
                 <span style={s.collapseIcon}>{collapsedRooms[room.id] ? '▶' : '▼'}</span>
@@ -109,6 +147,42 @@ export default function QuantityPanel() {
                             <tr key={i} style={s.row}>
                               <td style={s.tdName}><span style={{ ...s.badge, background: '#7b5ea7' }}>도어</span>{item.name}</td>
                               <td style={s.tdQty}>{item.qty} {item.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {lightingItems.length > 0 && (
+                    <div style={s.sfBlock}>
+                      <div style={{ ...s.sfHeader, borderLeftColor: '#eab308' }}>
+                        <span style={s.sfName}>조명</span>
+                      </div>
+                      <table style={s.table}>
+                        <tbody>
+                          {lightingItems.map((item, i) => (
+                            <tr key={i} style={s.row}>
+                              <td style={s.tdName}><span style={{ ...s.badge, background: '#eab308' }}>조명</span>{item.name}</td>
+                              <td style={s.tdQty}>{item.qty} {item.unit}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {extraItems.length > 0 && (
+                    <div style={s.sfBlock}>
+                      <div style={{ ...s.sfHeader, borderLeftColor: '#16a34a' }}>
+                        <span style={s.sfName}>추가항목</span>
+                      </div>
+                      <table style={s.table}>
+                        <tbody>
+                          {extraItems.map((item, i) => (
+                            <tr key={i} style={s.row}>
+                              <td style={s.tdName}><span style={{ ...s.badge, background: '#16a34a' }}>추가</span>{item.name}</td>
+                              <td style={s.tdQty}>{fmtQty(item.qty, item.unit)} {item.unit}</td>
                             </tr>
                           ))}
                         </tbody>
