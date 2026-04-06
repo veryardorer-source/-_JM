@@ -317,7 +317,7 @@ function calcPayroll(employee, form, rates) {
   const nationalPension = billedPension > 0 ? billedPension : Math.floor(Math.min(insBase, r.pensionCap) * (r.pensionRate / 100) / 10) * 10
   const healthInsurance = billedHealth > 0 ? billedHealth : Math.floor(insBase * (r.healthRate / 100) / 10) * 10
   const longTermCare = Math.floor(healthInsurance * (r.longTermRate / 100) / 10) * 10
-  const employmentInsurance = Math.floor(insBase * (r.employmentRate / 100) / 10) * 10
+  const employmentInsurance = employee?.exemptEmploymentIns ? 0 : Math.floor(insBase * (r.employmentRate / 100) / 10) * 10
   const incomeTax = calcIncomeTax(taxable, employee?.dependents || 1, employee?.childrenUnder20 || 0)
   const localIncomeTax = Math.floor(incomeTax * 0.1 / 10) * 10
 
@@ -488,6 +488,7 @@ function EmployeeModal({ employee, onSave, onClose }) {
     seollalBonus: '', chuseokBonus: '', summerBonus: '',
     dailyWage: '',
     dependents: 1, childrenUnder20: 0,
+    exemptEmploymentIns: false,
     hireDate: '', phone: '', status: '재직', memo: '',
     workStartTime: '09:00', workEndTime: '18:00', breakHours: 1,
     workDaysOfWeek: [1, 2, 3, 4, 5],
@@ -589,6 +590,15 @@ function EmployeeModal({ employee, onSave, onClose }) {
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-400" />
               </div>
             </div>
+          )}
+
+          {/* 고용보험 면제 (대표/이사 등) */}
+          {form.employeeType === '정규직' && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!form.exemptEmploymentIns} onChange={e => set('exemptEmploymentIns', e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400" />
+              <span className="text-sm text-gray-600">고용·산재보험 면제 <span className="text-xs text-gray-400">(대표이사, 등기임원 등)</span></span>
+            </label>
           )}
 
           {/* 퇴직 정보 */}
