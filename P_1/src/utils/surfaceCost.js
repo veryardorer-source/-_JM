@@ -90,21 +90,24 @@ import {
 } from './calculations.js'
 
 // 면의 치수 반환 (방향에 따라 가로/높이 결정)
+// 벽면에 customFinishHMm > 0 설정 시 개별 마감높이 사용 (벽마다 높이 다를 때)
 export function getSurfaceDimensions(room, sf) {
   const { widthM, depthM, heightM } = room
+  const customH = sf && sf.customFinishHMm > 0 ? sf.customFinishHMm / 1000 : null
+  const wallH = customH || heightM
   switch (sf.direction) {
     case 'floor':   return { widthMm: widthM * 1000, heightMm: depthM * 1000, areaSqm: widthM * depthM }
     case 'ceiling': return { widthMm: widthM * 1000, heightMm: depthM * 1000, areaSqm: widthM * depthM }
     case 'wallA': case 'wallB':
     case 'wallN': case 'wallS':  // 구버전 호환
-      return { widthMm: widthM * 1000, heightMm: heightM * 1000, areaSqm: widthM * heightM }
+      return { widthMm: widthM * 1000, heightMm: wallH * 1000, areaSqm: widthM * wallH }
     case 'wallC': case 'wallD':
     case 'wallE': case 'wallW':  // 구버전 호환
-      return { widthMm: depthM * 1000, heightMm: heightM * 1000, areaSqm: depthM * heightM }
+      return { widthMm: depthM * 1000, heightMm: wallH * 1000, areaSqm: depthM * wallH }
     case 'wallExtra': {
       const w = (sf.extraWidthM || 0) * 1000
-      const h = (sf.extraHeightM || heightM) * 1000
-      return { widthMm: w, heightMm: h, areaSqm: (sf.extraWidthM || 0) * (sf.extraHeightM || heightM) }
+      const h = (sf.extraHeightM || wallH) * 1000
+      return { widthMm: w, heightMm: h, areaSqm: (sf.extraWidthM || 0) * (sf.extraHeightM || wallH) }
     }
     default:        return { widthMm: 0, heightMm: 0, areaSqm: 0 }
   }
@@ -177,9 +180,10 @@ export function calcSurfaceCost(room, sf, { customMaterials = [], priceOverrides
   }
 
   // ── 벽 상부 노출: 마감H ~ 슬라브H 구간 자동 도장 항목 ──────────────
+  // customFinishHMm 설정 시 해당 벽의 개별 마감높이 기준으로 계산
   const slabH = room.slabHeightM || 0
-  const finishH = room.heightM || 0
-  const upperExposedHMm = (isWall && sf.exposedUpper && slabH > finishH) ? (slabH - finishH) * 1000 : 0
+  const effectiveFinishHM = sf.customFinishHMm > 0 ? sf.customFinishHMm / 1000 : (room.heightM || 0)
+  const upperExposedHMm = (isWall && sf.exposedUpper && slabH > effectiveFinishHM) ? (slabH - effectiveFinishHM) * 1000 : 0
   const upperExposedArea = upperExposedHMm > 0 ? (widthMm * upperExposedHMm) / 1e6 : 0
 
   // 분리 시공: 상부 도배/페인트 + 하부 필름 (lowerEnabled)

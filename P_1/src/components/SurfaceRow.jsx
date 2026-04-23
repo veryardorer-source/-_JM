@@ -402,6 +402,17 @@ export default function SurfaceRow({ room, sf }) {
               style={{ marginTop: 2 }} />
           </label>
         )}
+
+        {/* 상부 노출 체크 시에만 개별 마감H 입력 표시 */}
+        {isWall && sf.exposedUpper && (
+          <label style={styles.inlineLabel} title="이 벽의 마감(벽체) 높이. 비우면 실 마감H 사용. 이 높이 위부터 슬라브H까지가 노출 도장">
+            <span style={{ color: '#c44000', fontWeight: 700 }}>이 벽 마감H(mm)</span>
+            <input type="number" min="0" value={sf.customFinishHMm || ''}
+              placeholder={`${Math.round((room.heightM || 0) * 1000) || 2400}`}
+              onChange={e => upd({ customFinishHMm: Number(e.target.value) })}
+              style={{ ...styles.inputSm, width: 80 }} />
+          </label>
+        )}
       </div>
 
       {/* 금액 */}
