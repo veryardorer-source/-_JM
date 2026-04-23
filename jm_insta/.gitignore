@@ -1,5 +1,0 @@
-node_modules/
-backend/data/settings.json
-backend/uploads/
-.env
-dist/
