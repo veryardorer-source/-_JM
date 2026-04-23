@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>인테리어 견적 프로그램</title>
+    <script>
+      // 브라우저 환경에서 Node.js process 객체 폴리필 (Anthropic SDK 대응)
+      window.process = window.process || { env: {}, platform: 'browser', version: 'v18.0.0', browser: true, nextTick: function(cb){ Promise.resolve().then(cb) } };
+      window.global = window;
+    </script>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f0f2f5; color: #222; }
